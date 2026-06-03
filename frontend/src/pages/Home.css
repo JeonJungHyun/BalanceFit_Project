@@ -1,0 +1,31 @@
+.home-container {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+
+  background: linear-gradient(135deg, #4caf50, #2e7d32);
+  color: white;
+}
+
+.home-container h1 {
+  font-size: 42px;
+  margin-bottom: 10px;
+}
+
+.home-container p {
+  margin-bottom: 20px;
+  font-size: 16px;
+}
+
+.home-container button {
+  padding: 12px 20px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 16px;
+  background: white;
+  color: #2e7d32;
+  font-weight: bold;
+}

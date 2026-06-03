@@ -1,0 +1,56 @@
+.welcome {
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  background: linear-gradient(135deg, #f7f1e3, #f8e1e7);
+  font-family: Arial;
+}
+
+.hero {
+  text-align: center;
+  padding: 60px;
+  border-radius: 20px;
+  background: white;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+
+  animation: fadeIn 0.8s ease;
+}
+
+.hero h1 {
+  font-size: 34px;
+  color: #5c4b51;
+}
+
+.hero p {
+  margin-top: 10px;
+  color: #8a7f85;
+}
+
+.hero button {
+  margin-top: 20px;
+  padding: 12px 22px;
+  border: none;
+  border-radius: 10px;
+  background: #d8a7b1;
+  color: white;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.hero button:hover {
+  background: #c98a9a;
+  transform: translateY(-2px);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

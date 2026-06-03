@@ -1,0 +1,103 @@
+.login-bg {
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  background: linear-gradient(135deg, #f7f1e3, #f8e1e7);
+  font-family: Arial;
+}
+
+.login-card {
+  width: 340px;
+  padding: 40px;
+  border-radius: 20px;
+
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+
+  text-align: center;
+  backdrop-filter: blur(10px);
+
+  animation: fadeIn 0.8s ease;
+}
+
+.login-card h1 {
+  font-size: 26px;
+  color: #5c4b51;
+  margin-bottom: 8px;
+}
+
+.login-card p {
+  color: #8a7f85;
+  margin-bottom: 20px;
+}
+
+.login-card input {
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+
+  border: 1px solid #e0d6d9;
+  outline: none;
+
+  margin-bottom: 15px;
+  box-sizing: border-box;
+}
+
+.login-card input:focus {
+  border-color: #d8a7b1;
+}
+
+.login-card button {
+  width: 100%;
+  padding: 12px;
+
+  border: none;
+  border-radius: 10px;
+
+  background: #d8a7b1;
+  color: white;
+
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.login-card button:hover {
+  background: #c98a9a;
+  transform: translateY(-2px);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* 기존 코드 전부 유지하고 맨 아래에 추가 */
+
+.signup-link {
+  margin-top: 14px;
+  font-size: 13px;
+  color: #a89098;
+}
+
+.signup-link span {
+  color: #d8a7b1;
+  font-weight: bold;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.signup-link span:hover {
+  color: #c98a9a;
+}
+
+.login-card input:focus::placeholder {
+  color: transparent;
+}

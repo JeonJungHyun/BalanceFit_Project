@@ -1,0 +1,348 @@
+/* 전체 레이아웃 베이스 */
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  box-sizing: border-box;
+}
+
+/* 헤더 */
+.header {
+  position: relative;
+  margin-bottom: 24px;
+}
+
+.title {
+  text-align: center;
+  font-size: 28px;
+  font-weight: bold;
+  color: #222;
+  margin: 0;
+}
+
+.top-buttons {
+  position: absolute;
+  top: 4px;
+  right: 0;
+  display: flex;
+  gap: 10px;
+}
+
+.mypage-btn {
+  padding: 8px 14px;
+  border: none;
+  border-radius: 8px;
+  background-color: #d8a7b1;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.logout-btn {
+  padding: 8px 14px;
+  border: none;
+  border-radius: 8px;
+  background-color: #333;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+/* 달력 구역 */
+.top-calendar-row-zone {
+  width: 100%;
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 20px;
+  border: 1px solid #eee;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  box-sizing: border-box;
+  margin-bottom: 30px;
+}
+
+.calendar-top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.calendar-title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.calendar-year-month {
+  font-size: 18px;
+  font-weight: bold;
+  color: #333;
+  margin: 0;
+}
+
+.month-nav-btn {
+  background: #f5f5f5;
+  border: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.calendar-action-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.today-badge-btn {
+  background: #fdf0f2;
+  color: #b5838d;
+  border: none;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.toggle-expand-btn {
+  background: #ffffff;
+  border: 1px solid #ccc;
+  padding: 5px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #555;
+}
+
+.calendar-weekday-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-weight: bold;
+  font-size: 13px;
+  color: #aaa;
+  margin-bottom: 12px;
+}
+.sun-head { color: #f03e3e; }
+.sat-head { color: #b5838d; }
+
+.calendar-days-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  row-gap: 10px;
+}
+
+.day-cell {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 14px;
+  color: #333;
+  border-radius: 50%;
+  margin: 0 auto;
+}
+.day-cell:not(.empty):hover { background-color: #f5f5f5; }
+.day-cell.sunday { color: #f03e3e; }
+.day-cell.saturday { color: #b5838d; }
+.day-cell.selected {
+  background-color: #b5838d !important;
+  color: #ffffff !important;
+}
+
+/* 하단 시간대별 리스트 */
+.bottom-cards-row-zone {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  width: 100%;
+}
+
+.time-group-block {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+/* 시간 헤더 - 핑크 세로 바 */
+.time-section-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 14px;
+  padding-left: 10px;
+  border-left: 3.5px solid #b5838d;
+}
+
+.time-section-title {
+  font-size: 20px;
+  font-weight: bold;
+  color: #2b2b2b;
+  letter-spacing: -0.5px;
+}
+
+.time-group-cards-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+}
+
+/* 카드 */
+.timeline-program-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 1px solid #eaeaea;
+  border-radius: 16px;
+  padding: 20px 24px;
+  background: #ffffff;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.04);
+  box-sizing: border-box;
+  width: 100%;
+  transition: all 0.2s ease-in-out;
+}
+
+.timeline-program-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+}
+
+.program-left-contents {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  flex: 1;
+}
+
+/* 이미지 + 제목/강사명 가로 배치 */
+.program-top-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.instructor-thumbnail {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: 50% 20%;
+  transform: scale(1.2);
+  border: none;
+  background-color: transparent;
+  flex-shrink: 0;
+}
+
+.program-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.program-title-text {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #222;
+}
+
+.instructor-name-label {
+  font-size: 14px;
+  color: #777;
+  font-weight: 500;
+}
+
+.program-sub-details {
+  font-size: 14px;
+  color: #666;
+}
+
+.capacity-count-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* 인원 수 강조 - 핑크 */
+.highlight-count {
+  font-weight: bold;
+  color: #b5838d;
+}
+
+/* 우측 액션 */
+.program-right-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.status-badge-label {
+  font-size: 12px;
+  font-weight: bold;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background-color: #f1f3f5;
+  color: #495057;
+  border: 1px solid #dee2e6;
+}
+
+.status-badge-label.is-available {
+  background-color: #fff0f1;
+  color: #b5838d;
+  border-color: #f3d0d6;
+}
+
+.status-badge-label.is-full {
+  background-color: #f8f9fa;
+  color: #868e96;
+}
+
+/* 예약 버튼 */
+.main-reserve-action-btn, button {
+  padding: 9px 16px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  background-color: #d8a7b1;
+  color: white;
+  font-weight: bold;
+  font-size: 14px;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+button:not(:disabled):hover {
+  background-color: #c98a9a;
+  transform: translateY(-1px);
+}
+
+button:disabled {
+  background-color: #e9ecef;
+  color: #adb5bd;
+  cursor: not-allowed;
+  opacity: 0.8;
+  pointer-events: none;
+}
+
+.empty-placeholder {
+  text-align: center;
+  color: #888;
+  padding: 50px 0;
+  font-size: 15px;
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid #eee;
+  width: 100%;
+  box-sizing: border-box;
+}

@@ -1,0 +1,370 @@
+/* 공통 컨테이너 베이스 */
+.container {
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 40px 24px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: #f8f9fa;
+  box-sizing: border-box;
+  min-height: 100vh;
+}
+
+/* 상단 타이틀 통합 바 */
+.header-main-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  background: #ffffff;
+  padding: 20px 24px;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 800;
+  color: #111111;
+  margin: 0;
+}
+
+.header-top-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.nav-action-btn {
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.nav-action-btn.back-list-btn {
+  background-color: #deb3b9;
+  color: #ffffff;
+}
+.nav-action-btn.back-list-btn:hover {
+  background-color: #cb9da3;
+}
+
+.nav-action-btn.logout-btn {
+  background-color: #373a3c;
+  color: #ffffff;
+}
+.nav-action-btn.logout-btn:hover {
+  background-color: #2b2d2f;
+}
+
+/* 탭 메뉴 */
+.tab-menu {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  background: #ffffff;
+  padding: 6px;
+  border-radius: 8px;
+  width: 100%;
+  box-sizing: border-box;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+}
+
+.tab-btn {
+  flex: 1;
+  background: none;
+  border: none;
+  padding: 14px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #000000;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.tab-btn.active {
+  color: #ffffff;
+  background-color: #b5838d;
+}
+
+/* 메인 2분할 레이아웃 */
+.mypage-main-layout {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* [좌측] 달력 레이아웃 */
+.left-calendar-zone {
+  flex: 0 0 400px;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
+  box-sizing: border-box;
+}
+
+.calendar-top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.calendar-title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.calendar-year-month {
+  font-size: 18px;
+  font-weight: 700;
+  color: #212529;
+  margin: 0;
+}
+
+.month-nav-btn {
+  background: #f1f3f5;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.calendar-action-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.today-badge-btn {
+  background: #e8f7ff;
+  color: #1c7ed6;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.toggle-expand-btn {
+  background: #ffffff;
+  border: 1px solid #ced4da;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: #495057;
+}
+
+.calendar-weekday-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-weight: 700;
+  font-size: 13px;
+  color: #adb5bd;
+  margin-bottom: 16px;
+}
+.sun-head { color: #f03e3e; }
+.sat-head { color: #1c7ed6; }
+
+.calendar-days-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  row-gap: 12px;
+}
+
+.day-cell {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 15px;
+  color: #495057;
+  border-radius: 50%;
+  margin: 0 auto;
+}
+.day-cell:not(.empty):hover { background-color: #f1f3f5; }
+.day-cell.sunday { color: #f03e3e; }
+.day-cell.saturday { color: #1c7ed6; }
+.day-cell.selected {
+  background-color: #b5838d !important;
+  color: #ffffff !important;
+  font-weight: 700;
+}
+
+/* 🛠️ [1번 사진 스타일 핵심] 우측 타임라인 존 전체 스타일링 */
+.right-timeline-zone {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* 시간 구역 하나를 통째로 감싸는 블록 박스 */
+.timeline-time-section-block {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+/* 🛠️ [1번 사진 매칭] 카드 위에 단독으로 깔리는 폰트 굵은 시간 제목 바 */
+.timeline-top-time-header {
+  margin-bottom: 12px;
+  padding-left: 4px;
+}
+
+.time-header-text {
+  font-size: 18px;
+  font-weight: 800;
+  color: #1c7ed6; /* 메인 테마 강조 컬러 */
+  letter-spacing: -0.5px;
+}
+
+/* 카드들이 세로로 나열되는 스택 */
+.timeline-cards-vertical-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+/* 🛠️ [1번 사진 매칭] 왼쪽 사이드바 없이 가로 전체를 꽉 채우는 부드러운 화이트 카드 */
+.fitness-program-card-v2 {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 20px 24px;
+  border: 1px solid #e9ecef;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.015);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.program-main-details {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+/* 수정 전 코드에서 아래 내용으로 변경 */
+.instructor-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden; /* 영역 밖으로 나가는 이미지 숨김 */
+}
+
+/* 이미지를 꽉 채우기 위한 추가 스타일 */
+.instructor-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* 이미지가 비율을 유지하며 영역을 꽉 채움 (얼굴 확대 효과) */
+}
+
+.program-meta-info h4 {
+  margin: 0 0 6px 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #111111;
+  
+  /* 핵심: 종목명만 왼쪽으로 붙이기 */
+  text-align: left;
+  margin-right: auto; /* 오른쪽 여백을 최대로 확보해서 왼쪽으로 붙임 */
+}
+
+/* 아랫줄 강사정보 및 뱃지 인라인 가로 배치 */
+.info-sub-row-group {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 14px;
+  color: #495057;
+}
+
+.info-sub-item {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* 정원 한정 미니 뱃지 */
+.status-capacity-badge {
+  display: inline-block;
+  color: #b5838d;
+  background: #fbf6f7;
+  font-weight: 600;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid #f3e6e8;
+}
+
+/* 우측 정렬 취소 버튼 */
+.action-cancel-btn {
+  background: #fff5f5;
+  color: #fa5252;
+  border: 1px solid #ffc9c9;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+.action-cancel-btn:hover {
+  background: #fa5252;
+  color: #ffffff;
+}
+
+.empty-placeholder {
+  text-align: center;
+  color: #868e96;
+  padding: 60px 0;
+  font-size: 16px;
+  background: #ffffff;
+  border-radius: 14px;
+  border: 1px solid #e9ecef;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 940px) {
+  .mypage-main-layout {
+    flex-direction: column;
+  }
+  .left-calendar-zone {
+    flex: 1;
+    width: 100%;
+  }
+}
