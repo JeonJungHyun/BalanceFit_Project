@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import FloatingChatWidget from "../chat/FloatingChatWidget";
 import "./ClassList.css";
 
 export default function ClassList() {
@@ -223,6 +224,7 @@ export default function ClassList() {
           })
         )}
       </div>
+      <FloatingChatWidget />
     </div>
   );
 }
