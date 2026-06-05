@@ -9,14 +9,10 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-
-        {/* ✅ 첫 화면 = 환영 페이지 */}
         <Route path="/" element={<Welcome />} />
-
         <Route path="/login" element={<Login />} />
         <Route path="/mypage" element={<MyPage />} />
         <Route path="/signup" element={<Signup />} />
-
         <Route
           path="/classes"
           element={
@@ -25,7 +21,6 @@ function App() {
             </PrivateRoute>
           }
         />
-
       </Routes>
     </BrowserRouter>
   );
