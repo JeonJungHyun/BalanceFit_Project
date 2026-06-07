@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import FloatingChatWidget from "../chat/FloatingChatWidget";
@@ -14,6 +14,12 @@ export default function ClassList() {
   const [currentMonth, setCurrentMonth] = useState(today.getMonth() + 1);
   const [selectedDate, setSelectedDate] = useState(today.getDate());
   const [isExpanded, setIsExpanded] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedTimeFilter, setSelectedTimeFilter] = useState("all");
+  const [filterResetKey, setFilterResetKey] = useState(0);
+  const searchInputRef = useRef(null);
+  const timeSelectRef = useRef(null);
+  const ignoreSearchChangeUntilRef = useRef(0);
 
   const logout = () => {
     localStorage.removeItem("userId");
@@ -53,6 +59,9 @@ export default function ClassList() {
     fetchMyReservations();
   }, []);
 
+  // 오늘 날짜 (시간 제거, 날짜만 비교용)
+  const todayDateOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
   const filteredClassesByDate = classes.filter((c) => {
     if (!c || !c.startTime) return false;
     const d = new Date(c.startTime);
@@ -75,7 +84,69 @@ export default function ClassList() {
     }, {});
   };
 
-  const groupedData = groupByTime(filteredClassesByDate);
+  const getClassTimeKey = (item) => {
+    if (!item || !item.startTime) return "10:00";
+    return item.startTime.includes("T")
+      ? item.startTime.split("T")[1].substring(0, 5)
+      : "10:00";
+  };
+
+  const normalizedSearchTerm = searchTerm.trim().toLowerCase();
+  const hasActiveFilter = normalizedSearchTerm.length > 0 || selectedTimeFilter !== "all";
+  const upcomingClasses = classes.filter((item) => {
+    if (!item || !item.startTime) return false;
+    const classDate = new Date(item.startTime);
+    return new Date(classDate.getFullYear(), classDate.getMonth(), classDate.getDate()) >= todayDateOnly;
+  });
+  const filterSourceClasses = hasActiveFilter ? upcomingClasses : filteredClassesByDate;
+  const availableTimeFilters = Array.from(
+    new Set(upcomingClasses.map((item) => getClassTimeKey(item)))
+  ).sort();
+
+  const filteredClasses = filterSourceClasses.filter((item) => {
+    if (!item) return false;
+
+    const matchesSearch = !normalizedSearchTerm ||
+      `${item.title || ""} ${item.instructor || ""}`.toLowerCase().includes(normalizedSearchTerm);
+    const matchesTime = selectedTimeFilter === "all" || getClassTimeKey(item) === selectedTimeFilter;
+
+    return matchesSearch && matchesTime;
+  });
+
+  const groupedData = groupByTime(filteredClasses);
+
+  const formatClassDate = (value) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    return `${date.getMonth() + 1}월 ${date.getDate()}일`;
+  };
+
+  const resetClassFilters = () => {
+    ignoreSearchChangeUntilRef.current = Date.now() + 300;
+    if (searchInputRef.current) searchInputRef.current.value = "";
+    if (timeSelectRef.current) timeSelectRef.current.value = "all";
+    setSearchTerm("");
+    setSelectedTimeFilter("all");
+    setFilterResetKey((current) => current + 1);
+  };
+
+  const handleSearchTermChange = (event) => {
+    if (Date.now() < ignoreSearchChangeUntilRef.current) {
+      event.currentTarget.value = "";
+      setSearchTerm("");
+      return;
+    }
+
+    setSearchTerm(event.currentTarget.value);
+  };
+
+  const handleFilterBarResetCapture = (event) => {
+    if (!event.target.closest("[data-filter-reset='true']")) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    resetClassFilters();
+  };
 
   const generateMonthCalendar = (year, month) => {
     const startDay = new Date(year, month - 1, 1).getDay();
@@ -95,9 +166,6 @@ export default function ClassList() {
     const rowStart = Math.floor(selectedIndex / 7) * 7;
     return allCalendarDays.slice(rowStart, rowStart + 7);
   };
-
-  // 오늘 날짜 (시간 제거, 날짜만 비교용)
-  const todayDateOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
   return (
     <div className="container">
@@ -143,9 +211,61 @@ export default function ClassList() {
         </div>
       </div>
 
+      <div
+        className="class-search-filter-bar"
+        onPointerDownCapture={handleFilterBarResetCapture}
+        onMouseDownCapture={handleFilterBarResetCapture}
+      >
+        <div className="class-search-input-wrap">
+          <span aria-hidden="true">⌕</span>
+          <input
+            key={`search-${filterResetKey}`}
+            ref={searchInputRef}
+            type="search"
+            placeholder="수업명 또는 강사명 검색"
+            value={searchTerm}
+            onInput={handleSearchTermChange}
+            onChange={handleSearchTermChange}
+            onCompositionEnd={(e) => {
+              if (Date.now() < ignoreSearchChangeUntilRef.current) {
+                e.currentTarget.value = "";
+                setSearchTerm("");
+              }
+            }}
+          />
+        </div>
+        <select
+          key={`time-${filterResetKey}`}
+          ref={timeSelectRef}
+          className="class-time-filter-select"
+          value={selectedTimeFilter}
+          onChange={(e) => setSelectedTimeFilter(e.target.value)}
+          aria-label="시간대 선택"
+        >
+          <option value="all">전체 시간</option>
+          {availableTimeFilters.map((time) => (
+            <option key={time} value={time}>{time}</option>
+          ))}
+        </select>
+        {hasActiveFilter && (
+          <button
+            type="button"
+            className="class-filter-reset-btn"
+            data-filter-reset="true"
+            onClick={resetClassFilters}
+          >
+            초기화
+          </button>
+        )}
+      </div>
+
       <div className="bottom-cards-row-zone">
         {Object.keys(groupedData).length === 0 ? (
-          <p className="empty-placeholder">{currentMonth}월 {selectedDate}일에 등록된 클래스 일정이 없습니다.</p>
+          <p className="empty-placeholder">
+            {hasActiveFilter
+              ? "검색 조건에 맞는 클래스가 없습니다."
+              : `${currentMonth}월 ${selectedDate}일에 등록된 클래스 일정이 없습니다.`}
+          </p>
         ) : (
           Object.keys(groupedData).sort().map((timeKey) => {
             const [hour, min] = timeKey.split(":");
@@ -191,6 +311,9 @@ export default function ClassList() {
                             </div>
                           </div>
                           <div className="program-sub-details">
+                            {hasActiveFilter && (
+                              <span className="class-search-date-label">{formatClassDate(c.startTime)}</span>
+                            )}
                             <span className="capacity-count-badge">
                               예약인원/최대수강인원 <span className="highlight-count">{c.currentReservations}/{c.maxCapacity}명</span>
                             </span>

@@ -33,10 +33,14 @@
   padding: 8px 14px;
   border: none;
   border-radius: 8px;
-  background-color: #d8a7b1;
+  background-color: #e8b2be;
   color: white;
   font-weight: bold;
   cursor: pointer;
+}
+
+.mypage-btn:hover {
+  background-color: #d994a5 !important;
 }
 
 .logout-btn {
@@ -101,8 +105,8 @@
 }
 
 .today-badge-btn {
-  background: #fdf0f2;
-  color: #b5838d;
+  background: #fff5f7;
+  color: #d994a5;
   border: none;
   padding: 5px 12px;
   border-radius: 20px;
@@ -131,7 +135,7 @@
   margin-bottom: 12px;
 }
 .sun-head { color: #f03e3e; }
-.sat-head { color: #b5838d; }
+.sat-head { color: #d994a5; }
 
 .calendar-days-grid {
   display: grid;
@@ -154,10 +158,94 @@
 }
 .day-cell:not(.empty):hover { background-color: #f5f5f5; }
 .day-cell.sunday { color: #f03e3e; }
-.day-cell.saturday { color: #b5838d; }
+.day-cell.saturday { color: #d994a5; }
 .day-cell.selected {
-  background-color: #b5838d !important;
+  background-color: #d994a5 !important;
   color: #ffffff !important;
+}
+
+.class-search-filter-bar {
+  display: grid;
+  grid-template-columns: 1fr 150px auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin: -10px 0 24px;
+  padding: 12px;
+  border: 1px solid #eee;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+  box-sizing: border-box;
+}
+
+.class-search-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid #e9ecef;
+  border-radius: 10px;
+  background: #fafafa;
+  box-sizing: border-box;
+}
+
+.class-search-input-wrap span {
+  flex: 0 0 auto;
+  color: #999;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.class-search-input-wrap input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: #333;
+  font: inherit;
+  font-size: 14px;
+}
+
+.class-search-input-wrap input::placeholder {
+  color: #aaa;
+}
+
+.class-time-filter-select {
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid #e9ecef;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #555;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.class-search-input-wrap:focus-within,
+.class-time-filter-select:focus {
+  border-color: #e8b2be;
+  box-shadow: 0 0 0 3px rgba(232, 178, 190, 0.18);
+}
+
+.class-filter-reset-btn {
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 10px;
+  background-color: #fff5f7;
+  color: #b87484;
+  font-size: 13px;
+}
+
+.class-filter-reset-btn:hover {
+  background-color: #efd0d7 !important;
+  color: #8f5f6c;
 }
 
 /* 하단 시간대별 리스트 */
@@ -180,7 +268,7 @@
   align-items: center;
   margin-bottom: 14px;
   padding-left: 10px;
-  border-left: 3.5px solid #b5838d;
+  border-left: 3.5px solid #d994a5;
 }
 
 .time-section-title {
@@ -264,8 +352,23 @@
 }
 
 .program-sub-details {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
   font-size: 14px;
   color: #666;
+}
+
+.class-search-date-label {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #fff5f7;
+  color: #b87484;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .capacity-count-badge {
@@ -277,7 +380,7 @@
 /* 인원 수 강조 - 핑크 */
 .highlight-count {
   font-weight: bold;
-  color: #b5838d;
+  color: #d994a5;
 }
 
 /* 우측 액션 */
@@ -298,9 +401,9 @@
 }
 
 .status-badge-label.is-available {
-  background-color: #fff0f1;
-  color: #b5838d;
-  border-color: #f3d0d6;
+  background-color: #fff5f7;
+  color: #d994a5;
+  border-color: #efd0d7;
 }
 
 .status-badge-label.is-full {
@@ -314,7 +417,7 @@
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  background-color: #d8a7b1;
+  background-color: #e8b2be;
   color: white;
   font-weight: bold;
   font-size: 14px;
@@ -323,8 +426,12 @@
 }
 
 button:not(:disabled):hover {
-  background-color: #c98a9a;
+  background-color: #d994a5;
   transform: translateY(-1px);
+}
+
+.main-reserve-action-btn:not(:disabled):hover {
+  background-color: #d994a5 !important;
 }
 
 button:disabled {
@@ -345,4 +452,16 @@ button:disabled {
   border: 1px solid #eee;
   width: 100%;
   box-sizing: border-box;
+}
+
+@media (max-width: 720px) {
+  .class-search-filter-bar {
+    grid-template-columns: 1fr;
+    margin-top: -12px;
+  }
+
+  .class-time-filter-select,
+  .class-filter-reset-btn {
+    width: 100%;
+  }
 }
