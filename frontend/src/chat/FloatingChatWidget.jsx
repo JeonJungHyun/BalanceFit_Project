@@ -4,16 +4,46 @@ import {
   FaChevronRight,
   FaCog,
   FaCommentDots,
-  FaEdit,
   FaGlobe,
   FaHome,
-  FaLanguage,
   FaPaperPlane,
   FaRegClock,
+  FaSearch,
 } from "react-icons/fa";
 import "./FloatingChatWidget.css";
 
 const defaultConversations = [];
+// TODO: REMOVE DURING BACKEND/MONGODB INTEGRATION STEP
+const mockConversation = {
+  id: "mock-general-inquiry-room",
+  partnerName: "김사랑",
+  partnerRole: "INSTRUCTOR",
+  lastMessageAt: "2026-06-07T12:48:00+09:00",
+};
+// TODO: REMOVE DURING BACKEND/MONGODB INTEGRATION STEP
+const mockMessages = [
+  {
+    id: "mock-message-1",
+    roomId: mockConversation.id,
+    sender: "partner",
+    text: "안녕하세요 회원님.\n무엇을 도와드릴까요?",
+    createdAt: "2026-06-07T12:46:00+09:00",
+  },
+  {
+    id: "mock-message-2",
+    roomId: mockConversation.id,
+    sender: "me",
+    text: "기타 문의로 상담을 시작하고 싶어요.",
+    createdAt: "2026-06-07T12:47:00+09:00",
+  },
+  {
+    id: "mock-message-3",
+    roomId: mockConversation.id,
+    sender: "partner",
+    text: "네, 편하게 문의 내용을 남겨주세요.",
+    createdAt: "2026-06-07T12:48:00+09:00",
+  },
+];
 const tabs = [
   { id: "home", label: "홈", icon: FaHome },
   { id: "chat", label: "대화", icon: FaCommentDots },
@@ -29,6 +59,196 @@ const inquiryOptions = [
   { icon: "👻", label: "마케팅/제휴 문의" },
   { icon: "🎸", label: "기타 문의" },
 ];
+const languageOptions = [
+  { value: "ko", nativeLabel: "한국어", englishLabel: "Korean", group: "모든 번역 지원" },
+  { value: "en", nativeLabel: "English", englishLabel: "English", group: "모든 번역 지원" },
+  { value: "ja", nativeLabel: "日本語", englishLabel: "Japanese", group: "모든 번역 지원" },
+  { value: "ar", nativeLabel: "العربية", englishLabel: "Arabic", group: "메시지 번역 지원" },
+  { value: "ca", nativeLabel: "Català", englishLabel: "Catalan", group: "메시지 번역 지원" },
+  { value: "zh", nativeLabel: "中文", englishLabel: "Chinese", group: "메시지 번역 지원" },
+  { value: "hr", nativeLabel: "Hrvatski", englishLabel: "Croatian", group: "메시지 번역 지원" },
+  { value: "cs", nativeLabel: "Čeština", englishLabel: "Czech", group: "메시지 번역 지원" },
+  { value: "da", nativeLabel: "Dansk", englishLabel: "Danish", group: "메시지 번역 지원" },
+  { value: "nl", nativeLabel: "Nederlands", englishLabel: "Dutch", group: "메시지 번역 지원" },
+  { value: "fi", nativeLabel: "Suomi", englishLabel: "Finnish", group: "메시지 번역 지원" },
+  { value: "fr", nativeLabel: "Français", englishLabel: "French", group: "메시지 번역 지원" },
+  { value: "de", nativeLabel: "Deutsch", englishLabel: "German", group: "메시지 번역 지원" },
+  { value: "es", nativeLabel: "Español", englishLabel: "Spanish", group: "메시지 번역 지원" },
+];
+const messagesByLanguage = {
+  ko: {
+    tabs: { home: "홈", chat: "대화", settings: "설정" },
+    brandName: "밸런스핏",
+    operatingHours: "월요일 오전 10:00부터 운영해요",
+    greeting: "안녕하세요 회원님🙇‍♂️",
+    helpQuestion: "무슨 도움이 필요하신가요?",
+    inquiryButton: "문의하기",
+    newInquiryButton: "새 문의하기",
+    chatTitle: "대화",
+    instructorEmpty: "문의가 들어오고 있어요!",
+    chatEmpty: "대화를 시작해보세요",
+    inquiryIntro: "밸런스핏 이용 안내는 아래 가이드를 통해 확인하실 수 있습니다.",
+    inquiryQuestion: "무슨 도움이 필요하신가요?🥰",
+    inquiryStarted: "상담 시작",
+    inquiryChoiceTitle: "문의 유형을 선택해주세요",
+    inquiryChoiceGuide: "가장 가까운 항목을 고르면 더 빠르게 도와드릴게요.",
+    settingsTitle: "설정",
+    memberFallback: "회원",
+    supportSettings: "상담 환경",
+    language: "언어",
+    notificationSound: "알림음",
+    languageSearchPlaceholder: "검색어를 입력해주세요",
+    languageGroups: { all: "모든 번역 지원", message: "메시지 번역 지원" },
+    notificationPermissionAlert: "브라우저 알림 권한이 꺼져 있어요. 알림을 받으려면 브라우저 설정에서 권한을 허용해주세요.",
+    notificationPreviewBody: "알림음이 켜졌어요.",
+    turnSoundOn: "알림음 켜기",
+    turnSoundOff: "알림음 끄기",
+    backToConversations: "대화 목록으로 돌아가기",
+    closeLanguage: "언어 선택 닫기",
+    languageDialog: "언어 선택",
+    consultationRoom: (name) => `${name}님과의 상담방입니다.`,
+    inquiryOptions: {
+      "비용 문의": "비용 문의",
+      "데이터 이관": "데이터 이관",
+      "무료 체험": "무료 체험",
+      "도입 문의": "도입 문의",
+      "자주 묻는 질문": "자주 묻는 질문",
+      "운영자료 무료로 받기": "운영자료 무료로 받기",
+      "마케팅/제휴 문의": "마케팅/제휴 문의",
+      "기타 문의": "기타 문의",
+    },
+  },
+  en: {
+    tabs: { home: "Home", chat: "Chat", settings: "Settings" },
+    brandName: "BalanceFit",
+    operatingHours: "Open from Monday 10:00 AM",
+    greeting: "Hello, member🙇‍♂️",
+    helpQuestion: "How can we help?",
+    inquiryButton: "Contact us",
+    newInquiryButton: "New inquiry",
+    chatTitle: "Chat",
+    instructorEmpty: "New inquiries are coming in!",
+    chatEmpty: "Start a conversation",
+    inquiryIntro: "You can check the BalanceFit guide below.",
+    inquiryQuestion: "How can we help?🥰",
+    inquiryStarted: "Consultation started",
+    inquiryChoiceTitle: "Choose an inquiry type",
+    inquiryChoiceGuide: "Pick the closest topic so we can help faster.",
+    settingsTitle: "Settings",
+    memberFallback: "Member",
+    supportSettings: "Support settings",
+    language: "Language",
+    notificationSound: "Notification sound",
+    languageSearchPlaceholder: "Enter a search term",
+    languageGroups: { all: "Full translation support", message: "Message translation support" },
+    notificationPermissionAlert: "Browser notifications are disabled. Please allow notifications in your browser settings.",
+    notificationPreviewBody: "Notification sound is on.",
+    turnSoundOn: "Turn notification sound on",
+    turnSoundOff: "Turn notification sound off",
+    backToConversations: "Back to conversations",
+    closeLanguage: "Close language selection",
+    languageDialog: "Language selection",
+    consultationRoom: (name) => `Consultation room with ${name}.`,
+    inquiryOptions: {
+      "비용 문의": "Pricing",
+      "데이터 이관": "Data migration",
+      "무료 체험": "Free trial",
+      "도입 문의": "Getting started",
+      "자주 묻는 질문": "FAQ",
+      "운영자료 무료로 받기": "Free resources",
+      "마케팅/제휴 문의": "Partnership",
+      "기타 문의": "Other",
+    },
+  },
+  ja: {
+    tabs: { home: "ホーム", chat: "会話", settings: "設定" },
+    brandName: "バランスフィット",
+    operatingHours: "月曜日 午前10:00から営業します",
+    greeting: "こんにちは、会員さま🙇‍♂️",
+    helpQuestion: "どのようなサポートが必要ですか？",
+    inquiryButton: "問い合わせ",
+    newInquiryButton: "新規問い合わせ",
+    chatTitle: "会話",
+    instructorEmpty: "お問い合わせが届いています！",
+    chatEmpty: "会話を始めてみましょう",
+    inquiryIntro: "バランスフィットの利用案内は下のガイドで確認できます。",
+    inquiryQuestion: "どのようなサポートが必要ですか？🥰",
+    inquiryStarted: "相談開始",
+    inquiryChoiceTitle: "問い合わせ種別を選択してください",
+    inquiryChoiceGuide: "近い項目を選ぶと、より早くご案内できます。",
+    settingsTitle: "設定",
+    memberFallback: "会員",
+    supportSettings: "相談環境",
+    language: "言語",
+    notificationSound: "通知音",
+    languageSearchPlaceholder: "検索語を入力してください",
+    languageGroups: { all: "すべての翻訳対応", message: "メッセージ翻訳対応" },
+    notificationPermissionAlert: "ブラウザ通知がオフです。通知を受け取るにはブラウザ設定で許可してください。",
+    notificationPreviewBody: "通知音がオンになりました。",
+    turnSoundOn: "通知音をオンにする",
+    turnSoundOff: "通知音をオフにする",
+    backToConversations: "会話一覧に戻る",
+    closeLanguage: "言語選択を閉じる",
+    languageDialog: "言語選択",
+    consultationRoom: (name) => `${name}さんとの相談ルームです。`,
+    inquiryOptions: {
+      "비용 문의": "料金相談",
+      "데이터 이관": "データ移行",
+      "무료 체험": "無料体験",
+      "도입 문의": "導入相談",
+      "자주 묻는 질문": "よくある質問",
+      "운영자료 무료로 받기": "運営資料を受け取る",
+      "마케팅/제휴 문의": "提携相談",
+      "기타 문의": "その他",
+    },
+  },
+  zh: {
+    tabs: { home: "首页", chat: "对话", settings: "设置" },
+    brandName: "BalanceFit",
+    operatingHours: "周一上午10:00开始运营",
+    greeting: "您好，会员🙇‍♂️",
+    helpQuestion: "需要什么帮助？",
+    inquiryButton: "咨询",
+    newInquiryButton: "新咨询",
+    chatTitle: "对话",
+    instructorEmpty: "正在收到咨询！",
+    chatEmpty: "开始对话吧",
+    inquiryIntro: "您可以通过下方指南查看BalanceFit使用说明。",
+    inquiryQuestion: "需要什么帮助？🥰",
+    inquiryStarted: "咨询开始",
+    inquiryChoiceTitle: "请选择咨询类型",
+    inquiryChoiceGuide: "选择最接近的项目，我们会更快帮助您。",
+    settingsTitle: "设置",
+    memberFallback: "会员",
+    supportSettings: "咨询环境",
+    language: "语言",
+    notificationSound: "通知音",
+    languageSearchPlaceholder: "请输入搜索词",
+    languageGroups: { all: "支持完整翻译", message: "支持消息翻译" },
+    notificationPermissionAlert: "浏览器通知已关闭。请在浏览器设置中允许通知。",
+    notificationPreviewBody: "通知音已开启。",
+    turnSoundOn: "开启通知音",
+    turnSoundOff: "关闭通知音",
+    backToConversations: "返回对话列表",
+    closeLanguage: "关闭语言选择",
+    languageDialog: "语言选择",
+    consultationRoom: (name) => `这是与${name}的咨询房间。`,
+    inquiryOptions: {
+      "비용 문의": "费用咨询",
+      "데이터 이관": "数据迁移",
+      "무료 체험": "免费体验",
+      "도입 문의": "导入咨询",
+      "자주 묻는 질문": "常见问题",
+      "운영자료 무료로 받기": "领取运营资料",
+      "마케팅/제휴 문의": "合作咨询",
+      "기타 문의": "其他咨询",
+    },
+  },
+};
+
+function getMessages(language) {
+  return messagesByLanguage[language] || messagesByLanguage.ko;
+}
 
 function ChatIcon() {
   return (
@@ -54,6 +274,14 @@ function CloseIcon() {
   );
 }
 
+function ThinCheckIcon() {
+  return (
+    <svg className="floating-chat-language-check" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="m5 12.4 4.2 4.2L19 6.8" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.9" />
+    </svg>
+  );
+}
+
 function formatLastMessageTime(value) {
   const date = new Date(value);
 
@@ -64,6 +292,30 @@ function formatLastMessageTime(value) {
   const minute = String(date.getMinutes()).padStart(2, "0");
 
   return `${period} ${String(hour).padStart(2, "0")}:${minute}`;
+}
+
+function formatKoreanTime(value) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "";
+
+  const period = date.getHours() >= 12 ? "오후" : "오전";
+  const hour = date.getHours() % 12 || 12;
+  const minute = String(date.getMinutes()).padStart(2, "0");
+
+  return `${period} ${hour}:${minute}`;
+}
+
+function formatMessageTime(value, language) {
+  if (language === "ko" || !messagesByLanguage[language]) return formatKoreanTime(value);
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  return new Intl.DateTimeFormat(language, {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
 }
 
 function getAccountType() {
@@ -80,12 +332,49 @@ export default function FloatingChatWidget({ conversations = defaultConversation
   const [activeTab, setActiveTab] = useState("home");
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [isNewInquiryOpen, setIsNewInquiryOpen] = useState(false);
+  const [inquiryOpenedAt, setInquiryOpenedAt] = useState(null);
+  // TODO: REMOVE DURING BACKEND/MONGODB INTEGRATION STEP
+  const [roomMessages, setRoomMessages] = useState({ [mockConversation.id]: mockMessages });
+  // TODO: REMOVE DURING BACKEND/MONGODB INTEGRATION STEP
+  const [roomDrafts, setRoomDrafts] = useState({});
+  const [roomScrollPositions, setRoomScrollPositions] = useState({});
+  const [currentUserName, setCurrentUserName] = useState(localStorage.getItem("userName") || "");
+  const [selectedLanguage, setSelectedLanguage] = useState("ko");
+  const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
+  const [languageSearchTerm, setLanguageSearchTerm] = useState("");
+  const [languageScrollbar, setLanguageScrollbar] = useState({ top: 0, height: 96, visible: false });
+  const [notificationSoundEnabled, setNotificationSoundEnabled] = useState(false);
   const widgetRef = useRef(null);
+  const chatRoomContentRef = useRef(null);
+  const chatRoomTextareaRef = useRef(null);
+  const languageListRef = useRef(null);
+  const languageScrollbarTimerRef = useRef(null);
+  const text = getMessages(selectedLanguage);
+  const normalizedAccountType = (accountType || getAccountType()).toUpperCase();
 
   const closeChat = () => {
     setIsChatOpen(false);
     setSelectedConversation(null);
     setIsNewInquiryOpen(false);
+    setInquiryOpenedAt(null);
+    setIsLanguageModalOpen(false);
+  };
+
+  const minimizeChat = () => {
+    setIsChatOpen(false);
+    setIsLanguageModalOpen(false);
+  };
+
+  const getConversationDisplayName = (conversation) => {
+    if (!conversation) return "";
+
+    if (normalizedAccountType === "INSTRUCTOR") {
+      return `${conversation.partnerName} 님`;
+    }
+
+    return conversation.partnerRole === "INSTRUCTOR"
+      ? `${conversation.partnerName} 강사님`
+      : `${conversation.partnerName} 님`;
   };
 
   const sortedConversations = useMemo(() => {
@@ -94,10 +383,9 @@ export default function FloatingChatWidget({ conversations = defaultConversation
     });
   }, [conversations]);
 
-  const normalizedAccountType = (accountType || getAccountType()).toUpperCase();
   const emptyMessage = normalizedAccountType === "INSTRUCTOR"
-    ? "문의가 들어오고 있어요!"
-    : "대화를 시작해보세요";
+    ? text.instructorEmpty
+    : text.chatEmpty;
 
   useEffect(() => {
     if (!isChatOpen) return undefined;
@@ -117,30 +405,242 @@ export default function FloatingChatWidget({ conversations = defaultConversation
     };
   }, [isChatOpen]);
 
+  useEffect(() => {
+    const userId = localStorage.getItem("userId");
+    if (!userId) return undefined;
+
+    let isMounted = true;
+
+    fetch(`http://localhost:8080/users/${userId}`)
+      .then((response) => {
+        if (!response.ok) throw new Error("Failed to load user");
+        return response.json();
+      })
+      .then((user) => {
+        if (!isMounted) return;
+        const nextName = user?.name || userId;
+        setCurrentUserName(nextName);
+        localStorage.setItem("userName", nextName);
+      })
+      .catch(() => {
+        if (isMounted) setCurrentUserName(userId);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const playNotificationPreview = () => {
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return;
+
+      const audioContext = new AudioContext();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
+      gainNode.gain.setValueAtTime(0.001, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.12, audioContext.currentTime + 0.02);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.18);
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      oscillator.start();
+      oscillator.stop(audioContext.currentTime + 0.2);
+    } catch {
+      // Notification sound preview is optional.
+    }
+  };
+
+  const showNotificationPreview = () => {
+    if (!("Notification" in window) || Notification.permission !== "granted") return;
+
+    new Notification(text.brandName, {
+      body: text.notificationPreviewBody,
+    });
+  };
+
+  const toggleNotificationSound = async () => {
+    if (notificationSoundEnabled) {
+      setNotificationSoundEnabled(false);
+      return;
+    }
+
+    if ("Notification" in window && Notification.permission === "default") {
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        setNotificationSoundEnabled(false);
+        return;
+      }
+    }
+
+    if ("Notification" in window && Notification.permission === "denied") {
+      alert(text.notificationPermissionAlert);
+      return;
+    }
+
+    setNotificationSoundEnabled(true);
+    playNotificationPreview();
+    showNotificationPreview();
+  };
+
+  const selectedLanguageOption = languageOptions.find((language) => language.value === selectedLanguage) || languageOptions[0];
+  const filteredLanguageOptions = languageOptions.filter((language) => {
+    const keyword = languageSearchTerm.trim().toLowerCase();
+    if (!keyword) return true;
+
+    return `${language.nativeLabel} ${language.englishLabel}`.toLowerCase().includes(keyword);
+  });
+  const groupedLanguageOptions = filteredLanguageOptions.reduce((groups, language) => {
+    if (!groups[language.group]) groups[language.group] = [];
+    groups[language.group].push(language);
+    return groups;
+  }, {});
+
+  useEffect(() => {
+    if (!isLanguageModalOpen) return undefined;
+
+    window.requestAnimationFrame(() => updateLanguageScrollbar(false));
+
+    return () => {
+      window.clearTimeout(languageScrollbarTimerRef.current);
+    };
+  }, [isLanguageModalOpen, languageSearchTerm]);
+
+  const updateLanguageScrollbar = (visible = true) => {
+    const list = languageListRef.current;
+    if (!list) return;
+
+    const { clientHeight, scrollHeight, scrollTop } = list;
+    if (scrollHeight <= clientHeight) {
+      setLanguageScrollbar((current) => ({ ...current, visible: false }));
+      return;
+    }
+
+    const maxThumbHeight = clientHeight * 0.34;
+    const rawHeight = (clientHeight / scrollHeight) * clientHeight;
+    const height = Math.max(56, Math.min(maxThumbHeight, rawHeight));
+    const maxTop = clientHeight - height;
+    const top = (scrollTop / (scrollHeight - clientHeight)) * maxTop;
+
+    setLanguageScrollbar({ top, height, visible });
+  };
+
+  const showLanguageScrollbarBriefly = () => {
+    updateLanguageScrollbar(true);
+    window.clearTimeout(languageScrollbarTimerRef.current);
+    languageScrollbarTimerRef.current = window.setTimeout(() => {
+      setLanguageScrollbar((current) => ({ ...current, visible: false }));
+    }, 700);
+  };
+
+  const openConversation = (conversation) => {
+    setActiveTab("chat");
+    setSelectedConversation(conversation);
+    setIsNewInquiryOpen(false);
+    setInquiryOpenedAt(null);
+  };
+
+  const openMockGeneralInquiryRoom = () => {
+    // TODO: REMOVE DURING BACKEND/MONGODB INTEGRATION STEP
+    openConversation(mockConversation);
+  };
+
+  const selectedRoomId = selectedConversation?.id;
+  const selectedRoomMessages = selectedRoomId ? roomMessages[selectedRoomId] || [] : [];
+  const selectedRoomDraft = selectedRoomId ? roomDrafts[selectedRoomId] || "" : "";
+
+  const resizeChatRoomTextarea = () => {
+    const textarea = chatRoomTextareaRef.current;
+    if (!textarea) return;
+
+    textarea.style.height = "auto";
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 110)}px`;
+  };
+
+  const handleChatRoomDraftChange = (event) => {
+    if (!selectedRoomId) return;
+
+    setRoomDrafts((drafts) => ({
+      ...drafts,
+      [selectedRoomId]: event.target.value,
+    }));
+  };
+
+  const handleChatRoomScroll = () => {
+    if (!selectedRoomId || !chatRoomContentRef.current) return;
+
+    setRoomScrollPositions((positions) => ({
+      ...positions,
+      [selectedRoomId]: chatRoomContentRef.current.scrollTop,
+    }));
+  };
+
+  const sendChatRoomMessage = () => {
+    if (!selectedRoomId) return;
+
+    if (!selectedRoomDraft.trim()) return;
+
+    // TODO: REMOVE DURING BACKEND/MONGODB INTEGRATION STEP
+    const nextMessage = {
+      id: `mock-message-${Date.now()}`,
+      roomId: selectedRoomId,
+      sender: "me",
+      text: selectedRoomDraft,
+      createdAt: new Date().toISOString(),
+    };
+
+    setRoomMessages((messages) => ({
+      ...messages,
+      [selectedRoomId]: [...(messages[selectedRoomId] || []), nextMessage],
+    }));
+    setRoomDrafts((drafts) => ({ ...drafts, [selectedRoomId]: "" }));
+
+    window.requestAnimationFrame(() => {
+      if (!chatRoomContentRef.current) return;
+      chatRoomContentRef.current.scrollTop = chatRoomContentRef.current.scrollHeight;
+      resizeChatRoomTextarea();
+    });
+  };
+
+  useEffect(() => {
+    resizeChatRoomTextarea();
+  }, [selectedRoomDraft]);
+
+  useEffect(() => {
+    if (!selectedRoomId || !chatRoomContentRef.current) return;
+
+    const savedScrollTop = roomScrollPositions[selectedRoomId];
+    chatRoomContentRef.current.scrollTop = typeof savedScrollTop === "number"
+      ? savedScrollTop
+      : chatRoomContentRef.current.scrollHeight;
+  }, [selectedRoomId, selectedRoomMessages.length]);
+
   const renderHome = () => (
     <div className="floating-chat-home">
       <header className="floating-chat-brand">
         <div className="floating-chat-brand-mark" aria-hidden="true">B</div>
         <div>
-          <h2>밸런스핏</h2>
-          <button type="button" className="floating-chat-hours-link">
-            운영시간 보기 <FaChevronRight aria-hidden="true" />
-          </button>
+          <h2>{text.brandName}</h2>
+          <p className="floating-chat-brand-hours">{text.operatingHours}</p>
         </div>
       </header>
 
       <section className="floating-chat-welcome-card">
         <p>
-          안녕하세요 회원님👋
+          {text.greeting}
           <br />
-          무슨 도움이 필요하신가요?
+          {text.helpQuestion}
         </p>
-        <button type="button" className="floating-chat-primary-action" onClick={() => setActiveTab("chat")}>
-          문의하기 <FaPaperPlane aria-hidden="true" />
+        <button type="button" className="floating-chat-primary-action" onClick={openNewInquiry}>
+          {text.inquiryButton} <FaPaperPlane aria-hidden="true" />
         </button>
         <div className="floating-chat-hours">
           <FaRegClock aria-hidden="true" />
-          <span>월요일 오전 10:00부터 운영해요</span>
+          <span>{text.operatingHours}</span>
         </div>
       </section>
     </div>
@@ -149,6 +649,7 @@ export default function FloatingChatWidget({ conversations = defaultConversation
   const openNewInquiry = () => {
     setActiveTab("chat");
     setSelectedConversation(null);
+    setInquiryOpenedAt(new Date());
     setIsNewInquiryOpen(true);
   };
 
@@ -159,55 +660,129 @@ export default function FloatingChatWidget({ conversations = defaultConversation
           type="button"
           className="floating-chat-back-button"
           onClick={() => setIsNewInquiryOpen(false)}
-          aria-label="Back to conversations"
+          aria-label={text.backToConversations}
         >
           <FaChevronRight aria-hidden="true" />
         </button>
         <div className="floating-chat-inquiry-brand-mark" aria-hidden="true">B</div>
         <div>
-          <h2>밸런스핏</h2>
-          <p>월요일 오전 10:00부터 운영해요</p>
+          <h2>{text.brandName}</h2>
+          <p>{text.operatingHours}</p>
         </div>
       </header>
 
       <section className="floating-chat-inquiry-message">
-        <span className="floating-chat-inquiry-eyebrow">상담 시작</span>
+        <span className="floating-chat-inquiry-eyebrow">{text.inquiryStarted}</span>
         <p>
-          안녕하세요 회원님👋
+          {text.greeting}
           <br />
-          밸런스핏 이용 안내는 아래 가이드를 통해 확인하실 수 있습니다.
+          {text.inquiryIntro}
           <br />
           <br />
-          무슨 도움이 필요하신가요?🥰
+          {text.inquiryQuestion}
         </p>
         <div className="floating-chat-message-meta">
-          <span>밸런스핏, 오후 8:16</span>
+          <span>{text.brandName}, {formatMessageTime(inquiryOpenedAt, selectedLanguage)}</span>
         </div>
       </section>
 
       <div className="floating-chat-inquiry-choice-header">
-        <strong>문의 유형을 선택해주세요</strong>
-        <span>가장 가까운 항목을 고르면 더 빠르게 도와드릴게요.</span>
+        <strong>{text.inquiryChoiceTitle}</strong>
+        <span>{text.inquiryChoiceGuide}</span>
       </div>
 
       <div className="floating-chat-inquiry-options">
         {inquiryOptions.map((option) => (
-          <button type="button" key={option.label}>
+          <button
+            type="button"
+            key={option.label}
+            onClick={option.label === "기타 문의" ? openMockGeneralInquiryRoom : undefined}
+          >
             <span className="floating-chat-option-icon" aria-hidden="true">{option.icon}</span>
-            <span>{option.label}</span>
+            <span>{text.inquiryOptions[option.label] || option.label}</span>
           </button>
         ))}
       </div>
     </div>
   );
 
+  const renderChatRoom = () => (
+    <div className="floating-chat-room">
+      <header className="floating-chat-room-header">
+        <button
+          type="button"
+          className="floating-chat-room-back"
+          onClick={() => setSelectedConversation(null)}
+          aria-label={text.backToConversations}
+        >
+          <FaChevronRight aria-hidden="true" />
+        </button>
+        <strong>{getConversationDisplayName(selectedConversation)}</strong>
+        <button
+          type="button"
+          className="floating-chat-room-close"
+          onClick={minimizeChat}
+          aria-label="채팅창 최소화"
+        >
+          <CloseIcon />
+        </button>
+      </header>
+
+      <div
+        className="floating-chat-room-content"
+        ref={chatRoomContentRef}
+        onScroll={handleChatRoomScroll}
+      >
+        {selectedRoomMessages.map((message) => {
+          const isMine = message.sender === "me";
+
+          return (
+            <div
+              className={`floating-chat-message-row ${isMine ? "is-mine" : "is-partner"}`}
+              key={message.id}
+            >
+              {!isMine && (
+                <span className="floating-chat-message-sender">
+                  {getConversationDisplayName(selectedConversation)}
+                </span>
+              )}
+              <div className="floating-chat-message-line">
+                {isMine && (
+                  <time dateTime={message.createdAt}>{formatLastMessageTime(message.createdAt)}</time>
+                )}
+                <p className="floating-chat-message-bubble">{message.text}</p>
+                {!isMine && (
+                  <time dateTime={message.createdAt}>{formatLastMessageTime(message.createdAt)}</time>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <form
+        className="floating-chat-room-input"
+        onSubmit={(event) => {
+          event.preventDefault();
+          sendChatRoomMessage();
+        }}
+      >
+        <textarea
+          ref={chatRoomTextareaRef}
+          value={selectedRoomDraft}
+          onChange={handleChatRoomDraftChange}
+          rows={1}
+          placeholder="메시지를 입력하세요"
+        />
+        <button type="submit">전송</button>
+      </form>
+    </div>
+  );
+
   const renderChat = () => (
-    <div className="floating-chat-tab-page">
+    <div className={`floating-chat-tab-page ${selectedConversation ? "floating-chat-room-page" : ""}`}>
       {isNewInquiryOpen ? renderNewInquiry() : selectedConversation ? (
-        <div className="floating-chat-room-placeholder">
-          <strong>{selectedConversation.partnerName}</strong>
-          <p>{selectedConversation.partnerName}님과의 상담방입니다.</p>
-        </div>
+        renderChatRoom()
       ) : sortedConversations.length > 0 ? (
         <div className="floating-chat-list" role="list">
           {sortedConversations.map((conversation) => (
@@ -215,9 +790,9 @@ export default function FloatingChatWidget({ conversations = defaultConversation
               type="button"
               className="floating-chat-list-row"
               key={conversation.id}
-              onClick={() => setSelectedConversation(conversation)}
+              onClick={() => openConversation(conversation)}
             >
-              <span className="floating-chat-partner-name">{conversation.partnerName}</span>
+              <span className="floating-chat-partner-name">{getConversationDisplayName(conversation)}</span>
               <time dateTime={conversation.lastMessageAt}>
                 {formatLastMessageTime(conversation.lastMessageAt)}
               </time>
@@ -226,11 +801,11 @@ export default function FloatingChatWidget({ conversations = defaultConversation
         </div>
       ) : (
         <div className="floating-chat-chat-empty">
-          <h2 className="floating-chat-page-title">대화</h2>
+          <h2 className="floating-chat-page-title">{text.chatTitle}</h2>
           <FaCommentDots aria-hidden="true" />
           <strong>{emptyMessage}</strong>
           <button type="button" className="floating-chat-new-inquiry" onClick={openNewInquiry}>
-            새 문의하기 <FaPaperPlane aria-hidden="true" />
+            {text.newInquiryButton} <FaPaperPlane aria-hidden="true" />
           </button>
         </div>
       )}
@@ -239,32 +814,105 @@ export default function FloatingChatWidget({ conversations = defaultConversation
 
   const renderSettings = () => (
     <div className="floating-chat-tab-page floating-chat-settings">
-      <h2 className="floating-chat-page-title">설정</h2>
+      <h2 className="floating-chat-page-title">{text.settingsTitle}</h2>
       <section className="floating-chat-profile">
         <div className="floating-chat-profile-avatar" aria-hidden="true">B</div>
-        <strong>이름</strong>
-        <span>연락처 정보</span>
-        <button type="button" className="floating-chat-edit-profile">
-          <FaEdit aria-hidden="true" /> 정보 수정하기
-        </button>
+        <strong>{currentUserName || localStorage.getItem("userId") || text.memberFallback}</strong>
       </section>
 
-      <section className="floating-chat-settings-list" aria-label="상담 환경">
-        <h3>상담 환경</h3>
-        <button type="button" className="floating-chat-setting-row">
-          <span><FaGlobe aria-hidden="true" /> 언어</span>
-          <strong>한국어 <FaChevronRight aria-hidden="true" /></strong>
+      <section className="floating-chat-settings-list" aria-label={text.supportSettings}>
+        <h3>{text.supportSettings}</h3>
+        <button
+          type="button"
+          className="floating-chat-setting-row"
+          onClick={() => {
+            setLanguageSearchTerm("");
+            setIsLanguageModalOpen(true);
+          }}
+        >
+          <span><FaGlobe aria-hidden="true" /> {text.language}</span>
+          <strong>{selectedLanguageOption.nativeLabel} <FaChevronRight aria-hidden="true" /></strong>
         </button>
         <div className="floating-chat-setting-row">
-          <span><FaLanguage aria-hidden="true" /> 메시지 번역 표시</span>
-          <span className="floating-chat-toggle" aria-hidden="true"></span>
+          <span><FaBell aria-hidden="true" /> {text.notificationSound}</span>
+          <button
+            type="button"
+            className={`floating-chat-toggle ${notificationSoundEnabled ? "is-on" : ""}`}
+            onClick={toggleNotificationSound}
+            aria-pressed={notificationSoundEnabled}
+            aria-label={notificationSoundEnabled ? text.turnSoundOff : text.turnSoundOn}
+          ></button>
         </div>
-        <div className="floating-chat-setting-row">
-          <span><FaBell aria-hidden="true" /> 알림음</span>
-          <span className="floating-chat-toggle" aria-hidden="true"></span>
-        </div>
-        <p className="floating-chat-version">v17.1.8</p>
       </section>
+
+      {isLanguageModalOpen && (
+        <div className="floating-chat-language-overlay" role="dialog" aria-modal="true" aria-label={text.languageDialog}>
+          <div className="floating-chat-language-modal">
+            <header className="floating-chat-language-header">
+              <h3>{text.language}</h3>
+              <button
+                type="button"
+                className="floating-chat-language-close"
+                onClick={() => setIsLanguageModalOpen(false)}
+                aria-label={text.closeLanguage}
+              >
+                <CloseIcon />
+              </button>
+            </header>
+            <div className="floating-chat-language-search">
+              <FaSearch aria-hidden="true" />
+              <input
+                type="search"
+                placeholder={text.languageSearchPlaceholder}
+                value={languageSearchTerm}
+                onChange={(event) => setLanguageSearchTerm(event.target.value)}
+              />
+            </div>
+            <div className="floating-chat-language-scroll">
+              <div
+                className="floating-chat-language-list"
+                ref={languageListRef}
+                onMouseEnter={() => updateLanguageScrollbar(true)}
+                onMouseLeave={() => setLanguageScrollbar((current) => ({ ...current, visible: false }))}
+                onScroll={showLanguageScrollbarBriefly}
+                onWheel={showLanguageScrollbarBriefly}
+              >
+                {Object.entries(groupedLanguageOptions).map(([groupName, languages]) => (
+                  <section key={groupName}>
+                    <h4>{groupName === "모든 번역 지원" ? text.languageGroups.all : text.languageGroups.message}</h4>
+                    {languages.map((language) => (
+                      <button
+                        type="button"
+                        className={`floating-chat-language-option ${selectedLanguage === language.value ? "is-selected" : ""}`}
+                        key={language.value}
+                        onClick={() => {
+                          setSelectedLanguage(language.value);
+                          setIsLanguageModalOpen(false);
+                        }}
+                      >
+                      <span>
+                        <strong>{language.nativeLabel}</strong>
+                        <i aria-hidden="true">·</i>
+                        <em>{language.englishLabel}</em>
+                      </span>
+                        {selectedLanguage === language.value && <ThinCheckIcon />}
+                      </button>
+                    ))}
+                  </section>
+                ))}
+              </div>
+              <span
+                className={`floating-chat-language-scrollbar ${languageScrollbar.visible ? "is-visible" : ""}`}
+                style={{
+                  height: `${languageScrollbar.height}px`,
+                  transform: `translateY(${languageScrollbar.top}px)`,
+                }}
+                aria-hidden="true"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 
@@ -276,42 +924,41 @@ export default function FloatingChatWidget({ conversations = defaultConversation
 
   return (
     <div className="floating-chat-widget" ref={widgetRef}>
-      {isChatOpen && (
-        <section
-          className={`floating-chat-panel ${isNewInquiryOpen ? "is-inquiry-open" : ""}`}
-          aria-label="Chat panel"
-        >
-          <div className="floating-chat-panel-body" aria-live="polite">
-            {renderActiveTab()}
-          </div>
+      <section
+        className={`floating-chat-panel ${isChatOpen ? "" : "is-hidden"} ${isNewInquiryOpen ? "is-inquiry-open" : ""} ${selectedConversation ? "is-room-open" : ""} ${isLanguageModalOpen ? "is-language-open" : ""}`}
+        aria-label="Chat panel"
+        aria-hidden={!isChatOpen}
+      >
+        <div className="floating-chat-panel-body" aria-live="polite">
+          {renderActiveTab()}
+        </div>
 
-          {!isNewInquiryOpen && (
-            <nav className="floating-chat-tab-bar" aria-label="Chat tabs">
-              {tabs.map((tab) => {
-                const Icon = tab.icon;
+        {!isNewInquiryOpen && !selectedConversation && !isLanguageModalOpen && (
+          <nav className="floating-chat-tab-bar" aria-label="Chat tabs">
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
 
-                return (
-                  <button
-                    type="button"
-                    className={`floating-chat-tab-button ${activeTab === tab.id ? "is-active" : ""}`}
-                    key={tab.id}
-                    onClick={() => {
-                      setActiveTab(tab.id);
-                      if (tab.id !== "chat") {
-                        setSelectedConversation(null);
-                        setIsNewInquiryOpen(false);
-                      }
-                    }}
-                  >
-                    <Icon aria-hidden="true" />
-                    <span>{tab.label}</span>
-                  </button>
-                );
-              })}
-            </nav>
-          )}
-        </section>
-      )}
+              return (
+                <button
+                  type="button"
+                  className={`floating-chat-tab-button ${activeTab === tab.id ? "is-active" : ""}`}
+                  key={tab.id}
+                  onClick={() => {
+                    setActiveTab(tab.id);
+                    if (tab.id !== "chat") {
+                      setSelectedConversation(null);
+                      setIsNewInquiryOpen(false);
+                    }
+                  }}
+                >
+                  <Icon aria-hidden="true" />
+                  <span>{text.tabs[tab.id]}</span>
+                </button>
+              );
+            })}
+          </nav>
+        )}
+      </section>
 
       <button
         type="button"
