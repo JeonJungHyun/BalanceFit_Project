@@ -15,6 +15,24 @@ import "./FloatingChatWidget.css";
 const CHAT_API_BASE_URL = "http://localhost:8080/chats";
 const USER_API_BASE_URL = "http://localhost:8080/users";
 const SUPPORT_USER_ID = "support";
+const MOCK_ROOM_ID = "mock-support-room";
+const mockSupportRoom = {
+  roomId: MOCK_ROOM_ID,
+  memberId: "test-member",
+  supportId: SUPPORT_USER_ID,
+  partnerName: "밸런스핏 상담",
+  partnerRole: "SUPPORT",
+  lastMessage: "백엔드 없이 채팅 흐름을 확인할 수 있어요.",
+  lastMessageAt: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
+};
+const mockInitialMessages = [
+  {
+    messageId: "mock-message-welcome",
+    senderId: SUPPORT_USER_ID,
+    message: "안녕하세요. 이 방은 로그인, DB, 백엔드 없이 동작하는 채팅 테스트 모드입니다.",
+    createdAt: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
+  },
+];
 const defaultConversations = [];
 const tabs = [
   { id: "home", label: "홈", icon: FaHome },
@@ -299,19 +317,46 @@ function getAccountType() {
   ).toUpperCase();
 }
 
-export default function FloatingChatWidget({ conversations = defaultConversations, accountType }) {
-  const [isChatOpen, setIsChatOpen] = useState(false);
+function createMockMessage(senderId, message) {
+  return {
+    messageId: `mock-message-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    senderId,
+    message,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+function createMockReply(userMessage) {
+  if (userMessage.includes("예약")) {
+    return "예약 문의 테스트 응답입니다. 실제 예약 데이터 없이 채팅 흐름만 확인합니다.";
+  }
+
+  if (userMessage.includes("비용") || userMessage.includes("가격")) {
+    return "비용 문의 테스트 응답입니다. 백엔드 없이 로컬 상태로만 표시됩니다.";
+  }
+
+  return "테스트 상담원이 자동 응답했습니다. 이 메시지는 서버에 저장되지 않습니다.";
+}
+
+export default function FloatingChatWidget({
+  conversations = defaultConversations,
+  accountType,
+  mockMode = false,
+  initialOpen = false,
+  mockUser = { userId: "test-member", name: "테스트 회원" },
+}) {
+  const [isChatOpen, setIsChatOpen] = useState(initialOpen);
   const [activeTab, setActiveTab] = useState("home");
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [isNewInquiryOpen, setIsNewInquiryOpen] = useState(false);
   const [inquiryOpenedAt, setInquiryOpenedAt] = useState(null);
-  const [chatRooms, setChatRooms] = useState([]);
-  const [roomMessages, setRoomMessages] = useState({});
+  const [chatRooms, setChatRooms] = useState(() => (mockMode ? [mockSupportRoom] : []));
+  const [roomMessages, setRoomMessages] = useState(() => (mockMode ? { [MOCK_ROOM_ID]: mockInitialMessages } : {}));
   const [roomDrafts, setRoomDrafts] = useState({});
   const [roomScrollPositions, setRoomScrollPositions] = useState({});
   const [chatError, setChatError] = useState("");
-  const [currentUserId, setCurrentUserId] = useState(localStorage.getItem("userId") || "");
-  const [currentUserName, setCurrentUserName] = useState(localStorage.getItem("userName") || "");
+  const [currentUserId, setCurrentUserId] = useState(mockMode ? mockUser.userId : localStorage.getItem("userId") || "");
+  const [currentUserName, setCurrentUserName] = useState(mockMode ? mockUser.name : localStorage.getItem("userName") || "");
   const [userDisplayNames, setUserDisplayNames] = useState({});
   const [selectedLanguage, setSelectedLanguage] = useState("ko");
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
@@ -412,6 +457,8 @@ export default function FloatingChatWidget({ conversations = defaultConversation
   }, [isChatOpen]);
 
   useEffect(() => {
+    if (mockMode) return undefined;
+
     let isMounted = true;
 
     const syncAuthenticatedUser = () => {
@@ -444,9 +491,11 @@ export default function FloatingChatWidget({ conversations = defaultConversation
       isMounted = false;
       window.removeEventListener("focus", syncAuthenticatedUser);
     };
-  }, []);
+  }, [mockMode]);
 
   useEffect(() => {
+    if (mockMode) return;
+
     setSelectedConversation(null);
     setIsNewInquiryOpen(false);
     setInquiryOpenedAt(null);
@@ -455,9 +504,10 @@ export default function FloatingChatWidget({ conversations = defaultConversation
     setRoomDrafts({});
     setRoomScrollPositions({});
     setChatError("");
-  }, [currentUserId]);
+  }, [currentUserId, mockMode]);
 
   useEffect(() => {
+    if (mockMode) return undefined;
     if (!isChatOpen || !currentUserId) return undefined;
 
     let isMounted = true;
@@ -477,7 +527,7 @@ export default function FloatingChatWidget({ conversations = defaultConversation
     return () => {
       isMounted = false;
     };
-  }, [currentUserId, isChatOpen]);
+  }, [currentUserId, isChatOpen, mockMode]);
 
   useEffect(() => {
     if (!isSupportUser || chatRooms.length === 0) return undefined;
@@ -620,6 +670,10 @@ export default function FloatingChatWidget({ conversations = defaultConversation
   const loadRoomMessages = async (roomId) => {
     if (!currentUserId) throw new Error("Missing userId");
 
+    if (mockMode) {
+      return roomMessages[roomId] || mockInitialMessages;
+    }
+
     const response = await fetch(
       `${CHAT_API_BASE_URL}/rooms/${encodeURIComponent(roomId)}/messages`,
       { credentials: "include" }
@@ -664,6 +718,24 @@ export default function FloatingChatWidget({ conversations = defaultConversation
     }
 
     setChatError("");
+
+    if (mockMode) {
+      const room = {
+        ...mockSupportRoom,
+        memberId: currentUserId,
+        lastMessageAt: new Date().toISOString(),
+      };
+      setChatRooms((rooms) => {
+        const nextRooms = rooms.filter((existingRoom) => existingRoom.roomId !== room.roomId);
+        return [room, ...nextRooms];
+      });
+      setRoomMessages((messages) => ({
+        ...messages,
+        [MOCK_ROOM_ID]: messages[MOCK_ROOM_ID] || mockInitialMessages,
+      }));
+      await openConversation(room);
+      return;
+    }
 
     try {
       const response = await fetch(
@@ -758,6 +830,24 @@ export default function FloatingChatWidget({ conversations = defaultConversation
 
     chatRoomSendingRef.current[selectedRoomId] = true;
 
+    if (mockMode) {
+      const savedMessage = createMockMessage(currentUserId, trimmedMessage);
+      appendRoomMessage(selectedRoomId, savedMessage);
+      setRoomDrafts((drafts) => ({ ...drafts, [selectedRoomId]: "" }));
+
+      window.requestAnimationFrame(() => {
+        if (!chatRoomContentRef.current) return;
+        chatRoomContentRef.current.scrollTop = chatRoomContentRef.current.scrollHeight;
+        resizeChatRoomTextarea();
+      });
+
+      window.setTimeout(() => {
+        appendRoomMessage(selectedRoomId, createMockMessage(SUPPORT_USER_ID, createMockReply(trimmedMessage)));
+        chatRoomSendingRef.current[selectedRoomId] = false;
+      }, 450);
+      return;
+    }
+
     fetch(
       `${CHAT_API_BASE_URL}/rooms/${encodeURIComponent(selectedRoomId)}/messages`,
       {
@@ -790,6 +880,7 @@ export default function FloatingChatWidget({ conversations = defaultConversation
   };
 
   useEffect(() => {
+    if (mockMode) return undefined;
     if (!selectedRoomId || !currentUserId || !selectedConversation) return undefined;
 
     const stream = new EventSource(
@@ -818,7 +909,7 @@ export default function FloatingChatWidget({ conversations = defaultConversation
     return () => {
       stream.close();
     };
-  }, [currentUserId, selectedConversation, selectedRoomId]);
+  }, [currentUserId, selectedConversation, selectedRoomId, mockMode]);
 
   useEffect(() => {
     resizeChatRoomTextarea();
@@ -951,14 +1042,7 @@ export default function FloatingChatWidget({ conversations = defaultConversation
           <FaChevronRight aria-hidden="true" />
         </button>
         <strong>{getConversationDisplayName(selectedConversation)}</strong>
-        <button
-          type="button"
-          className="floating-chat-room-close"
-          onClick={minimizeChat}
-          aria-label="채팅창 최소화"
-        >
-          <CloseIcon />
-        </button>
+        <span aria-hidden="true"></span>
       </header>
 
       <div
@@ -1160,6 +1244,8 @@ export default function FloatingChatWidget({ conversations = defaultConversation
     return renderHome();
   };
 
+  const shouldRenderPanelContent = isChatOpen || activeTab !== "settings";
+
   return (
     <div className="floating-chat-widget" ref={widgetRef}>
       <section
@@ -1167,11 +1253,13 @@ export default function FloatingChatWidget({ conversations = defaultConversation
         aria-label="Chat panel"
         aria-hidden={!isChatOpen}
       >
-        <div className="floating-chat-panel-body" aria-live="polite">
-          {renderActiveTab()}
-        </div>
+        {shouldRenderPanelContent && (
+          <div className="floating-chat-panel-body" aria-live="polite">
+            {renderActiveTab()}
+          </div>
+        )}
 
-        {!isNewInquiryOpen && !selectedConversation && !isLanguageModalOpen && (
+        {shouldRenderPanelContent && !isNewInquiryOpen && !selectedConversation && !isLanguageModalOpen && (
           <nav className="floating-chat-tab-bar" aria-label="Chat tabs">
             {tabs.map((tab) => {
               const Icon = tab.icon;
