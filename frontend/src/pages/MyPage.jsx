@@ -22,6 +22,14 @@ export default function MyPage() {
     navigate("/classes"); 
   };
 
+  const logout = () => {
+    axios.post("http://localhost:8080/users/logout", null, { withCredentials: true })
+      .finally(() => {
+        localStorage.clear();
+        navigate("/login");
+      });
+  };
+
   useEffect(() => {
     if (userId) {
       setIsLoading(true);
@@ -121,7 +129,7 @@ export default function MyPage() {
         <h1 className="title">내 예약 관리</h1>
         <div className="header-top-nav">
           <button className="nav-action-btn back-list-btn" onClick={goClassesList}>목록으로</button>
-          <button className="nav-action-btn logout-btn" onClick={() => { localStorage.clear(); navigate("/login"); }}>로그아웃</button>
+          <button className="nav-action-btn logout-btn" onClick={logout}>로그아웃</button>
         </div>
       </div>
 

@@ -12,38 +12,10 @@ import {
 } from "react-icons/fa";
 import "./FloatingChatWidget.css";
 
+const CHAT_API_BASE_URL = "http://localhost:8080/chats";
+const USER_API_BASE_URL = "http://localhost:8080/users";
+const SUPPORT_USER_ID = "support";
 const defaultConversations = [];
-// TODO: REMOVE DURING BACKEND/MONGODB INTEGRATION STEP
-const mockConversation = {
-  id: "mock-general-inquiry-room",
-  partnerName: "김사랑",
-  partnerRole: "INSTRUCTOR",
-  lastMessageAt: "2026-06-07T12:48:00+09:00",
-};
-// TODO: REMOVE DURING BACKEND/MONGODB INTEGRATION STEP
-const mockMessages = [
-  {
-    id: "mock-message-1",
-    roomId: mockConversation.id,
-    sender: "partner",
-    text: "안녕하세요 회원님.\n무엇을 도와드릴까요?",
-    createdAt: "2026-06-07T12:46:00+09:00",
-  },
-  {
-    id: "mock-message-2",
-    roomId: mockConversation.id,
-    sender: "me",
-    text: "기타 문의로 상담을 시작하고 싶어요.",
-    createdAt: "2026-06-07T12:47:00+09:00",
-  },
-  {
-    id: "mock-message-3",
-    roomId: mockConversation.id,
-    sender: "partner",
-    text: "네, 편하게 문의 내용을 남겨주세요.",
-    createdAt: "2026-06-07T12:48:00+09:00",
-  },
-];
 const tabs = [
   { id: "home", label: "홈", icon: FaHome },
   { id: "chat", label: "대화", icon: FaCommentDots },
@@ -333,12 +305,14 @@ export default function FloatingChatWidget({ conversations = defaultConversation
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [isNewInquiryOpen, setIsNewInquiryOpen] = useState(false);
   const [inquiryOpenedAt, setInquiryOpenedAt] = useState(null);
-  // TODO: REMOVE DURING BACKEND/MONGODB INTEGRATION STEP
-  const [roomMessages, setRoomMessages] = useState({ [mockConversation.id]: mockMessages });
-  // TODO: REMOVE DURING BACKEND/MONGODB INTEGRATION STEP
+  const [chatRooms, setChatRooms] = useState([]);
+  const [roomMessages, setRoomMessages] = useState({});
   const [roomDrafts, setRoomDrafts] = useState({});
   const [roomScrollPositions, setRoomScrollPositions] = useState({});
+  const [chatError, setChatError] = useState("");
+  const [currentUserId, setCurrentUserId] = useState(localStorage.getItem("userId") || "");
   const [currentUserName, setCurrentUserName] = useState(localStorage.getItem("userName") || "");
+  const [userDisplayNames, setUserDisplayNames] = useState({});
   const [selectedLanguage, setSelectedLanguage] = useState("ko");
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
   const [languageSearchTerm, setLanguageSearchTerm] = useState("");
@@ -347,10 +321,12 @@ export default function FloatingChatWidget({ conversations = defaultConversation
   const widgetRef = useRef(null);
   const chatRoomContentRef = useRef(null);
   const chatRoomTextareaRef = useRef(null);
+  const chatRoomSendingRef = useRef({});
   const languageListRef = useRef(null);
   const languageScrollbarTimerRef = useRef(null);
   const text = getMessages(selectedLanguage);
   const normalizedAccountType = (accountType || getAccountType()).toUpperCase();
+  const isSupportUser = currentUserId === SUPPORT_USER_ID;
 
   const closeChat = () => {
     setIsChatOpen(false);
@@ -368,6 +344,12 @@ export default function FloatingChatWidget({ conversations = defaultConversation
   const getConversationDisplayName = (conversation) => {
     if (!conversation) return "";
 
+    if (conversation.supportId === SUPPORT_USER_ID && conversation.memberId !== SUPPORT_USER_ID) {
+      return isSupportUser
+        ? `${userDisplayNames[conversation.memberId] || conversation.memberId} 님`
+        : conversation.partnerName || "밸런스핏 상담";
+    }
+
     if (normalizedAccountType === "INSTRUCTOR") {
       return `${conversation.partnerName} 님`;
     }
@@ -377,11 +359,35 @@ export default function FloatingChatWidget({ conversations = defaultConversation
       : `${conversation.partnerName} 님`;
   };
 
+  const getMessageSenderDisplayName = (message, conversation) => {
+    if (!message || !conversation) return "";
+
+    if (message.senderId === conversation.supportId) {
+      return conversation.partnerName || "밸런스핏 상담";
+    }
+
+    if (message.senderId === conversation.memberId) {
+      return `${userDisplayNames[conversation.memberId] || conversation.memberId} 님`;
+    }
+
+    return message.senderId || "";
+  };
+
   const sortedConversations = useMemo(() => {
-    return [...conversations].sort((a, b) => {
+    const conversationMap = new Map();
+
+    conversations.forEach((conversation) => {
+      conversationMap.set(conversation.roomId || conversation.id, conversation);
+    });
+
+    chatRooms.forEach((conversation) => {
+      conversationMap.set(conversation.roomId || conversation.id, conversation);
+    });
+
+    return [...conversationMap.values()].sort((a, b) => {
       return new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime();
     });
-  }, [conversations]);
+  }, [chatRooms, conversations]);
 
   const emptyMessage = normalizedAccountType === "INSTRUCTOR"
     ? text.instructorEmpty
@@ -406,30 +412,104 @@ export default function FloatingChatWidget({ conversations = defaultConversation
   }, [isChatOpen]);
 
   useEffect(() => {
-    const userId = localStorage.getItem("userId");
-    if (!userId) return undefined;
+    let isMounted = true;
+
+    const syncAuthenticatedUser = () => {
+      fetch(`${USER_API_BASE_URL}/me`, { credentials: "include" })
+        .then((response) => {
+          if (!response.ok) throw new Error("Failed to load current user");
+          return response.json();
+        })
+        .then((user) => {
+          if (!isMounted) return;
+
+          const nextUserId = user?.userId || "";
+          const nextName = user?.name || nextUserId;
+          setCurrentUserId(nextUserId);
+          setCurrentUserName(nextName);
+          if (nextUserId) localStorage.setItem("userId", nextUserId);
+          if (nextName) localStorage.setItem("userName", nextName);
+        })
+        .catch(() => {
+          if (!isMounted) return;
+          setCurrentUserId(localStorage.getItem("userId") || "");
+          setCurrentUserName(localStorage.getItem("userName") || "");
+        });
+    };
+
+    syncAuthenticatedUser();
+    window.addEventListener("focus", syncAuthenticatedUser);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener("focus", syncAuthenticatedUser);
+    };
+  }, []);
+
+  useEffect(() => {
+    setSelectedConversation(null);
+    setIsNewInquiryOpen(false);
+    setInquiryOpenedAt(null);
+    setChatRooms([]);
+    setRoomMessages({});
+    setRoomDrafts({});
+    setRoomScrollPositions({});
+    setChatError("");
+  }, [currentUserId]);
+
+  useEffect(() => {
+    if (!isChatOpen || !currentUserId) return undefined;
 
     let isMounted = true;
 
-    fetch(`http://localhost:8080/users/${userId}`)
+    fetch(`${CHAT_API_BASE_URL}/rooms`, { credentials: "include" })
       .then((response) => {
-        if (!response.ok) throw new Error("Failed to load user");
+        if (!response.ok) throw new Error("Failed to load chat rooms");
         return response.json();
       })
-      .then((user) => {
-        if (!isMounted) return;
-        const nextName = user?.name || userId;
-        setCurrentUserName(nextName);
-        localStorage.setItem("userName", nextName);
+      .then((rooms) => {
+        if (isMounted) setChatRooms(Array.isArray(rooms) ? rooms : []);
       })
       .catch(() => {
-        if (isMounted) setCurrentUserName(userId);
+        if (isMounted) setChatError("대화 목록을 불러오지 못했어요.");
       });
 
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [currentUserId, isChatOpen]);
+
+  useEffect(() => {
+    if (!isSupportUser || chatRooms.length === 0) return undefined;
+
+    const missingMemberIds = [...new Set(chatRooms
+      .map((room) => room.memberId)
+      .filter((memberId) => memberId && memberId !== SUPPORT_USER_ID && !userDisplayNames[memberId]))];
+
+    if (missingMemberIds.length === 0) return undefined;
+
+    let isMounted = true;
+
+    Promise.all(missingMemberIds.map((memberId) => (
+      fetch(`${USER_API_BASE_URL}/${encodeURIComponent(memberId)}`)
+        .then((response) => {
+          if (!response.ok) throw new Error("Failed to load member");
+          return response.json();
+        })
+        .then((user) => [memberId, user?.name || memberId])
+        .catch(() => [memberId, memberId])
+    ))).then((entries) => {
+      if (!isMounted) return;
+      setUserDisplayNames((names) => ({
+        ...names,
+        ...Object.fromEntries(entries),
+      }));
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [chatRooms, isSupportUser, userDisplayNames]);
 
   const playNotificationPreview = () => {
     try {
@@ -537,21 +617,104 @@ export default function FloatingChatWidget({ conversations = defaultConversation
     }, 700);
   };
 
-  const openConversation = (conversation) => {
+  const loadRoomMessages = async (roomId) => {
+    if (!currentUserId) throw new Error("Missing userId");
+
+    const response = await fetch(
+      `${CHAT_API_BASE_URL}/rooms/${encodeURIComponent(roomId)}/messages`,
+      { credentials: "include" }
+    );
+
+    if (!response.ok) throw new Error("Failed to load messages");
+
+    return response.json();
+  };
+
+  const openConversation = async (conversation) => {
     setActiveTab("chat");
     setSelectedConversation(conversation);
     setIsNewInquiryOpen(false);
     setInquiryOpenedAt(null);
+    setChatError("");
+
+    const roomId = conversation.roomId || conversation.id;
+
+    try {
+      const messages = await loadRoomMessages(roomId);
+      setRoomMessages((currentMessages) => ({
+        ...currentMessages,
+        [roomId]: Array.isArray(messages) ? messages : [],
+      }));
+    } catch {
+      setChatError("메시지를 불러오지 못했어요.");
+    }
   };
 
-  const openMockGeneralInquiryRoom = () => {
-    // TODO: REMOVE DURING BACKEND/MONGODB INTEGRATION STEP
-    openConversation(mockConversation);
+  const openSupportInquiryRoom = async () => {
+    if (isSupportUser) {
+      setActiveTab("chat");
+      setIsNewInquiryOpen(false);
+      setChatError("");
+      return;
+    }
+
+    if (!currentUserId) {
+      setChatError("로그인이 필요합니다.");
+      return;
+    }
+
+    setChatError("");
+
+    try {
+      const response = await fetch(
+        `${CHAT_API_BASE_URL}/rooms/support`,
+        { method: "POST", credentials: "include" }
+      );
+
+      if (!response.ok) throw new Error("Failed to create support room");
+
+      const room = await response.json();
+      setChatRooms((rooms) => {
+        const nextRooms = rooms.filter((existingRoom) => existingRoom.roomId !== room.roomId);
+        return [room, ...nextRooms];
+      });
+      await openConversation(room);
+    } catch {
+      setChatError("상담방을 열지 못했어요.");
+    }
   };
 
-  const selectedRoomId = selectedConversation?.id;
+  const selectedRoomId = selectedConversation?.roomId || selectedConversation?.id;
   const selectedRoomMessages = selectedRoomId ? roomMessages[selectedRoomId] || [] : [];
   const selectedRoomDraft = selectedRoomId ? roomDrafts[selectedRoomId] || "" : "";
+
+  const appendRoomMessage = (roomId, message) => {
+    if (!roomId || !message) return;
+
+    setRoomMessages((messages) => {
+      const currentMessages = messages[roomId] || [];
+      const exists = currentMessages.some((currentMessage) => (
+        currentMessage.messageId && currentMessage.messageId === message.messageId
+      ));
+
+      if (exists) return messages;
+
+      return {
+        ...messages,
+        [roomId]: [...currentMessages, message],
+      };
+    });
+
+    setChatRooms((rooms) => rooms.map((room) => (
+      room.roomId === roomId
+        ? {
+            ...room,
+            lastMessage: message.message,
+            lastMessageAt: message.createdAt,
+          }
+        : room
+    )));
+  };
 
   const resizeChatRoomTextarea = () => {
     const textarea = chatRoomTextareaRef.current;
@@ -570,6 +733,13 @@ export default function FloatingChatWidget({ conversations = defaultConversation
     }));
   };
 
+  const handleChatRoomDraftKeyDown = (event) => {
+    if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
+
+    event.preventDefault();
+    sendChatRoomMessage();
+  };
+
   const handleChatRoomScroll = () => {
     if (!selectedRoomId || !chatRoomContentRef.current) return;
 
@@ -582,29 +752,73 @@ export default function FloatingChatWidget({ conversations = defaultConversation
   const sendChatRoomMessage = () => {
     if (!selectedRoomId) return;
 
-    if (!selectedRoomDraft.trim()) return;
+    const trimmedMessage = selectedRoomDraft.trim();
 
-    // TODO: REMOVE DURING BACKEND/MONGODB INTEGRATION STEP
-    const nextMessage = {
-      id: `mock-message-${Date.now()}`,
-      roomId: selectedRoomId,
-      sender: "me",
-      text: selectedRoomDraft,
-      createdAt: new Date().toISOString(),
+    if (!trimmedMessage || chatRoomSendingRef.current[selectedRoomId]) return;
+
+    chatRoomSendingRef.current[selectedRoomId] = true;
+
+    fetch(
+      `${CHAT_API_BASE_URL}/rooms/${encodeURIComponent(selectedRoomId)}/messages`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ message: trimmedMessage }),
+      }
+    )
+      .then((response) => {
+        if (!response.ok) throw new Error("Failed to send message");
+        return response.json();
+      })
+      .then((savedMessage) => {
+        appendRoomMessage(selectedRoomId, savedMessage);
+        setRoomDrafts((drafts) => ({ ...drafts, [selectedRoomId]: "" }));
+
+        window.requestAnimationFrame(() => {
+          if (!chatRoomContentRef.current) return;
+          chatRoomContentRef.current.scrollTop = chatRoomContentRef.current.scrollHeight;
+          resizeChatRoomTextarea();
+        });
+      })
+      .catch(() => {
+        setChatError("메시지를 보내지 못했어요.");
+      })
+      .finally(() => {
+        chatRoomSendingRef.current[selectedRoomId] = false;
+      });
+  };
+
+  useEffect(() => {
+    if (!selectedRoomId || !currentUserId || !selectedConversation) return undefined;
+
+    const stream = new EventSource(
+      `${CHAT_API_BASE_URL}/rooms/${encodeURIComponent(selectedRoomId)}/stream`,
+      { withCredentials: true }
+    );
+
+    stream.addEventListener("message", (event) => {
+      try {
+        const message = JSON.parse(event.data);
+        appendRoomMessage(selectedRoomId, message);
+
+        window.requestAnimationFrame(() => {
+          if (!chatRoomContentRef.current) return;
+          chatRoomContentRef.current.scrollTop = chatRoomContentRef.current.scrollHeight;
+        });
+      } catch {
+        // Ignore malformed stream events.
+      }
+    });
+
+    stream.onerror = () => {
+      // Let EventSource retry automatically when the connection briefly drops.
     };
 
-    setRoomMessages((messages) => ({
-      ...messages,
-      [selectedRoomId]: [...(messages[selectedRoomId] || []), nextMessage],
-    }));
-    setRoomDrafts((drafts) => ({ ...drafts, [selectedRoomId]: "" }));
-
-    window.requestAnimationFrame(() => {
-      if (!chatRoomContentRef.current) return;
-      chatRoomContentRef.current.scrollTop = chatRoomContentRef.current.scrollHeight;
-      resizeChatRoomTextarea();
-    });
-  };
+    return () => {
+      stream.close();
+    };
+  }, [currentUserId, selectedConversation, selectedRoomId]);
 
   useEffect(() => {
     resizeChatRoomTextarea();
@@ -617,6 +831,15 @@ export default function FloatingChatWidget({ conversations = defaultConversation
     chatRoomContentRef.current.scrollTop = typeof savedScrollTop === "number"
       ? savedScrollTop
       : chatRoomContentRef.current.scrollHeight;
+  }, [selectedRoomId]);
+
+  useEffect(() => {
+    if (!selectedRoomId || !chatRoomContentRef.current) return;
+
+    window.requestAnimationFrame(() => {
+      if (!chatRoomContentRef.current) return;
+      chatRoomContentRef.current.scrollTop = chatRoomContentRef.current.scrollHeight;
+    });
   }, [selectedRoomId, selectedRoomMessages.length]);
 
   const renderHome = () => (
@@ -635,7 +858,11 @@ export default function FloatingChatWidget({ conversations = defaultConversation
           <br />
           {text.helpQuestion}
         </p>
-        <button type="button" className="floating-chat-primary-action" onClick={openNewInquiry}>
+        <button
+          type="button"
+          className="floating-chat-primary-action"
+          onClick={isSupportUser ? () => setActiveTab("chat") : openNewInquiry}
+        >
           {text.inquiryButton} <FaPaperPlane aria-hidden="true" />
         </button>
         <div className="floating-chat-hours">
@@ -647,6 +874,12 @@ export default function FloatingChatWidget({ conversations = defaultConversation
   );
 
   const openNewInquiry = () => {
+    if (isSupportUser) {
+      setActiveTab("chat");
+      setIsNewInquiryOpen(false);
+      return;
+    }
+
     setActiveTab("chat");
     setSelectedConversation(null);
     setInquiryOpenedAt(new Date());
@@ -696,7 +929,7 @@ export default function FloatingChatWidget({ conversations = defaultConversation
           <button
             type="button"
             key={option.label}
-            onClick={option.label === "기타 문의" ? openMockGeneralInquiryRoom : undefined}
+            onClick={option.label === "기타 문의" ? openSupportInquiryRoom : undefined}
           >
             <span className="floating-chat-option-icon" aria-hidden="true">{option.icon}</span>
             <span>{text.inquiryOptions[option.label] || option.label}</span>
@@ -733,26 +966,27 @@ export default function FloatingChatWidget({ conversations = defaultConversation
         ref={chatRoomContentRef}
         onScroll={handleChatRoomScroll}
       >
+        {chatError && <div className="floating-chat-room-error">{chatError}</div>}
         {selectedRoomMessages.map((message) => {
-          const isMine = message.sender === "me";
+          const isMine = message.senderId === currentUserId;
 
           return (
             <div
               className={`floating-chat-message-row ${isMine ? "is-mine" : "is-partner"}`}
-              key={message.id}
+              key={message.messageId || message.id}
             >
               {!isMine && (
                 <span className="floating-chat-message-sender">
-                  {getConversationDisplayName(selectedConversation)}
+                  {getMessageSenderDisplayName(message, selectedConversation)}
                 </span>
               )}
               <div className="floating-chat-message-line">
                 {isMine && (
-                  <time dateTime={message.createdAt}>{formatLastMessageTime(message.createdAt)}</time>
+                  <time dateTime={new Date(message.createdAt).toISOString()}>{formatLastMessageTime(message.createdAt)}</time>
                 )}
-                <p className="floating-chat-message-bubble">{message.text}</p>
+                <p className="floating-chat-message-bubble">{message.message}</p>
                 {!isMine && (
-                  <time dateTime={message.createdAt}>{formatLastMessageTime(message.createdAt)}</time>
+                  <time dateTime={new Date(message.createdAt).toISOString()}>{formatLastMessageTime(message.createdAt)}</time>
                 )}
               </div>
             </div>
@@ -771,6 +1005,7 @@ export default function FloatingChatWidget({ conversations = defaultConversation
           ref={chatRoomTextareaRef}
           value={selectedRoomDraft}
           onChange={handleChatRoomDraftChange}
+          onKeyDown={handleChatRoomDraftKeyDown}
           rows={1}
           placeholder="메시지를 입력하세요"
         />
@@ -789,7 +1024,7 @@ export default function FloatingChatWidget({ conversations = defaultConversation
             <button
               type="button"
               className="floating-chat-list-row"
-              key={conversation.id}
+              key={conversation.roomId || conversation.id}
               onClick={() => openConversation(conversation)}
             >
               <span className="floating-chat-partner-name">{getConversationDisplayName(conversation)}</span>
@@ -803,10 +1038,13 @@ export default function FloatingChatWidget({ conversations = defaultConversation
         <div className="floating-chat-chat-empty">
           <h2 className="floating-chat-page-title">{text.chatTitle}</h2>
           <FaCommentDots aria-hidden="true" />
+          {chatError && <p className="floating-chat-chat-error">{chatError}</p>}
           <strong>{emptyMessage}</strong>
-          <button type="button" className="floating-chat-new-inquiry" onClick={openNewInquiry}>
-            {text.newInquiryButton} <FaPaperPlane aria-hidden="true" />
-          </button>
+          {!isSupportUser && (
+            <button type="button" className="floating-chat-new-inquiry" onClick={openNewInquiry}>
+              {text.newInquiryButton} <FaPaperPlane aria-hidden="true" />
+            </button>
+          )}
         </div>
       )}
     </div>

@@ -22,8 +22,12 @@ export default function ClassList() {
   const ignoreSearchChangeUntilRef = useRef(0);
 
   const logout = () => {
-    localStorage.removeItem("userId");
-    window.location.href = "/login";
+    axios.post("http://localhost:8080/users/logout", null, { withCredentials: true })
+      .finally(() => {
+        localStorage.removeItem("userId");
+        localStorage.removeItem("userName");
+        window.location.href = "/login";
+      });
   };
 
   const goMyPage = () => navigate("/mypage");
