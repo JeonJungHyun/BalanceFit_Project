@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.example.BalanceFit.entity.User;
 import com.example.BalanceFit.service.UserService;
 
+import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -72,12 +73,39 @@ public class UserController {
        }
     }
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody User user) {  // org.apache.catalina.User 제거
+    public ResponseEntity<?> login(@RequestBody User user, HttpSession session) {  // org.apache.catalina.User 제거
         try {
             User loggedIn = userService.login(user.getUserId(), user.getPassword());
+            session.setAttribute("userId", loggedIn.getUserId());
             return ResponseEntity.ok(loggedIn);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(401).body(e.getMessage());
         }
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<?> getCurrentUser(HttpSession session) {
+        String userId = getSessionUserId(session);
+        if (userId == null) {
+            return ResponseEntity.status(401).body("로그인이 필요합니다.");
+        }
+
+        return ResponseEntity.ok(userService.getUserById(userId));
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(HttpSession session) {
+        session.invalidate();
+        return ResponseEntity.ok("로그아웃되었습니다.");
+    }
+
+    private String getSessionUserId(HttpSession session) {
+        Object userId = session.getAttribute("userId");
+        if (!(userId instanceof String)) {
+            return null;
+        }
+
+        String value = ((String) userId).trim();
+        return value.isEmpty() ? null : value;
     }
 }

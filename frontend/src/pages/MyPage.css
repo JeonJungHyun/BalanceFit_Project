@@ -50,11 +50,12 @@
 }
 
 .nav-action-btn.back-list-btn {
-  background-color: #deb3b9;
+  background-color: #e8b2be;
   color: #ffffff;
 }
 .nav-action-btn.back-list-btn:hover {
-  background-color: #cb9da3;
+  background-color: #d994a5 !important;
+  transform: translateY(-1px);
 }
 
 .nav-action-btn.logout-btn {
@@ -94,7 +95,19 @@
 
 .tab-btn.active {
   color: #ffffff;
-  background-color: #b5838d;
+  background-color: #d994a5;
+}
+
+.tab-btn:not(.active):hover {
+  background-color: #fff5f7 !important;
+  color: #d994a5;
+  transform: none !important;
+}
+
+.tab-btn.active:hover {
+  background-color: #d994a5 !important;
+  color: #ffffff;
+  transform: none !important;
 }
 
 /* 메인 2분할 레이아웃 */
@@ -213,7 +226,7 @@
 .day-cell.sunday { color: #f03e3e; }
 .day-cell.saturday { color: #1c7ed6; }
 .day-cell.selected {
-  background-color: #b5838d !important;
+  background-color: #d994a5 !important;
   color: #ffffff !important;
   font-weight: 700;
 }
@@ -293,8 +306,9 @@
 }
 
 .program-meta-info h4 {
-  margin: 0 0 6px 0;
+  margin: 0 0 1px 0;
   font-size: 18px;
+  line-height: 1.1;
   font-weight: 700;
   color: #111111;
   
@@ -309,6 +323,7 @@
   align-items: center;
   gap: 14px;
   font-size: 14px;
+  line-height: 1.1;
   color: #495057;
 }
 
@@ -320,13 +335,13 @@
 /* 정원 한정 미니 뱃지 */
 .status-capacity-badge {
   display: inline-block;
-  color: #b5838d;
-  background: #fbf6f7;
+  color: #d994a5;
+  background: #fff5f7;
   font-weight: 600;
   font-size: 12px;
   padding: 4px 8px;
   border-radius: 4px;
-  border: 1px solid #f3e6e8;
+  border: 1px solid #efd0d7;
 }
 
 /* 우측 정렬 취소 버튼 */
