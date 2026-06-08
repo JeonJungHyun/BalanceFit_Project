@@ -19,7 +19,9 @@ export default function ClassList() {
   const [filterResetKey, setFilterResetKey] = useState(0);
   const searchInputRef = useRef(null);
   const timeSelectRef = useRef(null);
+  const chatWidgetRef = useRef(null);
   const ignoreSearchChangeUntilRef = useRef(0);
+  const [openingChatClassId, setOpeningChatClassId] = useState("");
 
   const logout = () => {
     axios.post("http://localhost:8080/users/logout", null, { withCredentials: true })
@@ -56,6 +58,22 @@ export default function ClassList() {
         await fetchMyReservations();
       })
       .catch(() => alert("예약 실패"));
+  };
+
+  const consultInstructor = async (classItem) => {
+    const userId = localStorage.getItem("userId");
+    if (!userId) { alert("로그인이 필요합니다."); return; }
+    if (!chatWidgetRef.current?.openInstructorRoom) { alert("상담방을 열지 못했어요."); return; }
+
+    setOpeningChatClassId(classItem.classId);
+    try {
+      await chatWidgetRef.current.openInstructorRoom({
+        classId: classItem.classId,
+        instructorName: classItem.instructor,
+      });
+    } finally {
+      setOpeningChatClassId("");
+    }
   };
 
   useEffect(() => {
@@ -341,6 +359,13 @@ export default function ClassList() {
                               : isFull ? "대기하기"
                               : "예약하기"}
                           </button>
+                          <button
+                            className="main-reserve-action-btn"
+                            disabled={openingChatClassId === c.classId}
+                            onClick={() => consultInstructor(c)}
+                          >
+                            상담
+                          </button>
                         </div>
                       </div>
                     );
@@ -351,7 +376,7 @@ export default function ClassList() {
           })
         )}
       </div>
-      <FloatingChatWidget />
+      <FloatingChatWidget ref={chatWidgetRef} />
     </div>
   );
 }
