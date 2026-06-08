@@ -319,7 +319,7 @@ export default function ClassList() {
                               <span className="class-search-date-label">{formatClassDate(c.startTime)}</span>
                             )}
                             <span className="capacity-count-badge">
-                              예약인원/최대수강인원 <span className="highlight-count">{c.currentReservations}/{c.maxCapacity}명</span>
+                              정원 <span className="highlight-count">{c.currentReservations}/{c.maxCapacity}명</span>
                             </span>
                           </div>
                         </div>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   FaBell,
   FaChevronRight,
@@ -40,13 +40,9 @@ const tabs = [
   { id: "settings", label: "설정", icon: FaCog },
 ];
 const inquiryOptions = [
-  { icon: "💳", label: "비용 문의" },
-  { icon: "🧑‍💻", label: "데이터 이관" },
   { icon: "🙋🏻‍♀️", label: "무료 체험" },
-  { icon: "🎯", label: "도입 문의" },
+  { icon: "📅", label: "수업/예약 문의" },
   { icon: "🙋", label: "자주 묻는 질문" },
-  { icon: "🙂", label: "운영자료 무료로 받기" },
-  { icon: "👻", label: "마케팅/제휴 문의" },
   { icon: "🎸", label: "기타 문의" },
 ];
 const languageOptions = [
@@ -101,6 +97,7 @@ const messagesByLanguage = {
       "비용 문의": "비용 문의",
       "데이터 이관": "데이터 이관",
       "무료 체험": "무료 체험",
+      "수업/예약 문의": "수업/예약 문의",
       "도입 문의": "도입 문의",
       "자주 묻는 질문": "자주 묻는 질문",
       "운영자료 무료로 받기": "운영자료 무료로 받기",
@@ -143,6 +140,7 @@ const messagesByLanguage = {
       "비용 문의": "Pricing",
       "데이터 이관": "Data migration",
       "무료 체험": "Free trial",
+      "수업/예약 문의": "Class/reservation",
       "도입 문의": "Getting started",
       "자주 묻는 질문": "FAQ",
       "운영자료 무료로 받기": "Free resources",
@@ -185,6 +183,7 @@ const messagesByLanguage = {
       "비용 문의": "料金相談",
       "데이터 이관": "データ移行",
       "무료 체험": "無料体験",
+      "수업/예약 문의": "レッスン・予約相談",
       "도입 문의": "導入相談",
       "자주 묻는 질문": "よくある質問",
       "운영자료 무료로 받기": "運営資料を受け取る",
@@ -227,6 +226,7 @@ const messagesByLanguage = {
       "비용 문의": "费用咨询",
       "데이터 이관": "数据迁移",
       "무료 체험": "免费体验",
+      "수업/예약 문의": "课程/预约咨询",
       "도입 문의": "导入咨询",
       "자주 묻는 질문": "常见问题",
       "운영자료 무료로 받기": "领取运营资料",
@@ -317,6 +317,14 @@ function getAccountType() {
   ).toUpperCase();
 }
 
+function getNotificationSoundStorageKey(userId) {
+  return `balanceFitNotificationSound:${userId || "guest"}`;
+}
+
+function getStoredNotificationSoundEnabled(userId) {
+  return localStorage.getItem(getNotificationSoundStorageKey(userId)) === "true";
+}
+
 function createMockMessage(senderId, message) {
   return {
     messageId: `mock-message-${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -362,13 +370,19 @@ export default function FloatingChatWidget({
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
   const [languageSearchTerm, setLanguageSearchTerm] = useState("");
   const [languageScrollbar, setLanguageScrollbar] = useState({ top: 0, height: 96, visible: false });
-  const [notificationSoundEnabled, setNotificationSoundEnabled] = useState(false);
+  const [notificationSoundEnabled, setNotificationSoundEnabled] = useState(() => (
+    getStoredNotificationSoundEnabled(mockMode ? mockUser.userId : localStorage.getItem("userId") || "")
+  ));
+  const [unreadCounts, setUnreadCounts] = useState({});
+  const [inAppNotification, setInAppNotification] = useState(null);
   const widgetRef = useRef(null);
   const chatRoomContentRef = useRef(null);
   const chatRoomTextareaRef = useRef(null);
   const chatRoomSendingRef = useRef({});
   const languageListRef = useRef(null);
   const languageScrollbarTimerRef = useRef(null);
+  const supportRoomSnapshotRef = useRef(new Map());
+  const inAppNotificationTimerRef = useRef(null);
   const text = getMessages(selectedLanguage);
   const normalizedAccountType = (accountType || getAccountType()).toUpperCase();
   const isSupportUser = currentUserId === SUPPORT_USER_ID;
@@ -391,7 +405,7 @@ export default function FloatingChatWidget({
 
     if (conversation.supportId === SUPPORT_USER_ID && conversation.memberId !== SUPPORT_USER_ID) {
       return isSupportUser
-        ? `${userDisplayNames[conversation.memberId] || conversation.memberId} 님`
+        ? `${userDisplayNames[conversation.memberId] || conversation.memberId} 회원님`
         : conversation.partnerName || "밸런스핏 상담";
     }
 
@@ -412,7 +426,7 @@ export default function FloatingChatWidget({
     }
 
     if (message.senderId === conversation.memberId) {
-      return `${userDisplayNames[conversation.memberId] || conversation.memberId} 님`;
+      return `${userDisplayNames[conversation.memberId] || conversation.memberId} 회원님`;
     }
 
     return message.senderId || "";
@@ -433,6 +447,30 @@ export default function FloatingChatWidget({
       return new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime();
     });
   }, [chatRooms, conversations]);
+
+  const unreadTotal = Object.values(unreadCounts).reduce((total, count) => total + count, 0);
+  const formatUnreadCount = (count) => (count > 99 ? "99+" : String(count));
+  const supportNewInquiryCount = isSupportUser
+    ? sortedConversations.filter((conversation) => (
+        conversation.unreadMessageSupport || unreadCounts[conversation.roomId || conversation.id] > 0
+      )).length
+    : 0;
+
+  const getNotificationSenderName = useCallback((roomId, message) => {
+    const conversation = sortedConversations.find((item) => (item.roomId || item.id) === roomId);
+
+    if (!message) return text.brandName;
+
+    if (message.senderId === SUPPORT_USER_ID || message.senderId === conversation?.supportId) {
+      return conversation?.partnerName || "밸런스핏 상담";
+    }
+
+    if (message.senderId === conversation?.memberId) {
+      return `${userDisplayNames[conversation.memberId] || conversation.memberId || text.memberFallback} 회원님`;
+    }
+
+    return message.senderName || message.senderId || text.brandName;
+  }, [sortedConversations, text.brandName, text.memberFallback, userDisplayNames]);
 
   const emptyMessage = normalizedAccountType === "INSTRUCTOR"
     ? text.instructorEmpty
@@ -455,6 +493,12 @@ export default function FloatingChatWidget({
       document.removeEventListener("touchstart", handleOutsideClick);
     };
   }, [isChatOpen]);
+
+  useEffect(() => {
+    return () => {
+      window.clearTimeout(inAppNotificationTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (mockMode) return undefined;
@@ -504,6 +548,7 @@ export default function FloatingChatWidget({
     setRoomDrafts({});
     setRoomScrollPositions({});
     setChatError("");
+    setNotificationSoundEnabled(getStoredNotificationSoundEnabled(currentUserId));
   }, [currentUserId, mockMode]);
 
   useEffect(() => {
@@ -561,7 +606,7 @@ export default function FloatingChatWidget({
     };
   }, [chatRooms, isSupportUser, userDisplayNames]);
 
-  const playNotificationPreview = () => {
+  const playNotificationPreview = useCallback(() => {
     try {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       if (!AudioContext) return;
@@ -583,26 +628,49 @@ export default function FloatingChatWidget({
     } catch {
       // Notification sound preview is optional.
     }
-  };
+  }, []);
 
-  const showNotificationPreview = () => {
+  const showNotificationPreview = useCallback(() => {
     if (!("Notification" in window) || Notification.permission !== "granted") return;
 
     new Notification(text.brandName, {
       body: text.notificationPreviewBody,
     });
-  };
+  }, [text.brandName, text.notificationPreviewBody]);
+
+  const notifyIncomingMessage = useCallback((roomId, message) => {
+    if (!notificationSoundEnabled || !message || message.senderId === currentUserId) return;
+
+    playNotificationPreview();
+
+    if (!("Notification" in window) || Notification.permission !== "granted") return;
+
+    new Notification(getNotificationSenderName(roomId, message), {
+      body: message.message || text.notificationPreviewBody,
+    });
+  }, [
+    currentUserId,
+    getNotificationSenderName,
+    notificationSoundEnabled,
+    playNotificationPreview,
+    text.notificationPreviewBody,
+  ]);
 
   const toggleNotificationSound = async () => {
     if (notificationSoundEnabled) {
       setNotificationSoundEnabled(false);
+      localStorage.setItem(getNotificationSoundStorageKey(currentUserId), "false");
       return;
     }
+
+    setNotificationSoundEnabled(true);
+    localStorage.setItem(getNotificationSoundStorageKey(currentUserId), "true");
+    playNotificationPreview();
 
     if ("Notification" in window && Notification.permission === "default") {
       const permission = await Notification.requestPermission();
       if (permission !== "granted") {
-        setNotificationSoundEnabled(false);
+        alert(text.notificationPermissionAlert);
         return;
       }
     }
@@ -612,8 +680,6 @@ export default function FloatingChatWidget({
       return;
     }
 
-    setNotificationSoundEnabled(true);
-    playNotificationPreview();
     showNotificationPreview();
   };
 
@@ -692,6 +758,7 @@ export default function FloatingChatWidget({
     setChatError("");
 
     const roomId = conversation.roomId || conversation.id;
+    clearRoomUnread(roomId);
 
     try {
       const messages = await loadRoomMessages(roomId);
@@ -759,6 +826,124 @@ export default function FloatingChatWidget({
   const selectedRoomId = selectedConversation?.roomId || selectedConversation?.id;
   const selectedRoomMessages = selectedRoomId ? roomMessages[selectedRoomId] || [] : [];
   const selectedRoomDraft = selectedRoomId ? roomDrafts[selectedRoomId] || "" : "";
+
+  const showInAppNotification = useCallback((roomId, message) => {
+    if (!message || message.senderId === currentUserId) return;
+
+    window.clearTimeout(inAppNotificationTimerRef.current);
+    setInAppNotification({
+      roomId,
+      title: getNotificationSenderName(roomId, message),
+      message: message.message || text.chatTitle,
+    });
+
+    inAppNotificationTimerRef.current = window.setTimeout(() => {
+      setInAppNotification(null);
+    }, 3600);
+  }, [currentUserId, getNotificationSenderName, text.chatTitle]);
+
+  const handleIncomingMessage = useCallback((roomId, message) => {
+    if (!roomId || !message || message.senderId === currentUserId) return;
+
+    notifyIncomingMessage(roomId, message);
+
+    if (roomId === selectedRoomId && isChatOpen) return;
+
+    setUnreadCounts((counts) => ({
+      ...counts,
+      [roomId]: Math.min((counts[roomId] || 0) + 1, 99),
+    }));
+    showInAppNotification(roomId, message);
+  }, [
+    currentUserId,
+    isChatOpen,
+    notifyIncomingMessage,
+    selectedRoomId,
+    showInAppNotification,
+  ]);
+
+  const clearRoomUnread = (roomId) => {
+    if (!roomId) return;
+
+    setUnreadCounts((counts) => {
+      if (!counts[roomId]) return counts;
+
+      const nextCounts = { ...counts };
+      delete nextCounts[roomId];
+      return nextCounts;
+    });
+  };
+
+  useEffect(() => {
+    if (mockMode || !currentUserId) return undefined;
+
+    let isMounted = true;
+
+    const syncRoomsForInAppNotification = () => {
+      fetch(`${CHAT_API_BASE_URL}/rooms`, { credentials: "include" })
+        .then((response) => {
+          if (!response.ok) throw new Error("Failed to load chat rooms");
+          return response.json();
+        })
+        .then((rooms) => {
+          if (!isMounted) return;
+
+          const nextRooms = Array.isArray(rooms) ? rooms : [];
+          const previousSnapshot = supportRoomSnapshotRef.current;
+          const nextSnapshot = new Map();
+          let notificationMessage = "";
+          let notificationRoomId = "";
+
+          nextRooms.forEach((room) => {
+            const roomId = room.roomId || room.id;
+            if (!roomId) return;
+
+            const marker = `${room.lastMessageAt || ""}|${room.lastMessage || ""}`;
+            const previousMarker = previousSnapshot.get(roomId);
+            nextSnapshot.set(roomId, marker);
+
+            if (roomId === selectedRoomId) return;
+
+            if (previousSnapshot.size > 0 && (!previousMarker || previousMarker !== marker)) {
+              notificationMessage = room.lastMessage || text.chatTitle;
+              notificationRoomId = roomId;
+            }
+          });
+
+          supportRoomSnapshotRef.current = nextSnapshot;
+          setChatRooms(nextRooms);
+
+          if (notificationMessage) {
+            handleIncomingMessage(notificationRoomId, {
+              senderId: isSupportUser
+                ? nextRooms.find((room) => (room.roomId || room.id) === notificationRoomId)?.memberId
+                : nextRooms.find((room) => (room.roomId || room.id) === notificationRoomId)?.supportId,
+              message: notificationMessage,
+            });
+          }
+        })
+        .catch(() => {
+          // Background notification polling should not interrupt the chat UI.
+        });
+    };
+
+    syncRoomsForInAppNotification();
+    window.addEventListener("focus", syncRoomsForInAppNotification);
+    const intervalId = window.setInterval(syncRoomsForInAppNotification, 1000);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener("focus", syncRoomsForInAppNotification);
+      window.clearInterval(intervalId);
+    };
+  }, [
+    currentUserId,
+    handleIncomingMessage,
+    isSupportUser,
+    mockMode,
+    selectedRoomId,
+    text.chatTitle,
+  ]);
 
   const appendRoomMessage = (roomId, message) => {
     if (!roomId || !message) return;
@@ -842,7 +1027,9 @@ export default function FloatingChatWidget({
       });
 
       window.setTimeout(() => {
-        appendRoomMessage(selectedRoomId, createMockMessage(SUPPORT_USER_ID, createMockReply(trimmedMessage)));
+        const replyMessage = createMockMessage(SUPPORT_USER_ID, createMockReply(trimmedMessage));
+        appendRoomMessage(selectedRoomId, replyMessage);
+        handleIncomingMessage(selectedRoomId, replyMessage);
         chatRoomSendingRef.current[selectedRoomId] = false;
       }, 450);
       return;
@@ -892,6 +1079,7 @@ export default function FloatingChatWidget({
       try {
         const message = JSON.parse(event.data);
         appendRoomMessage(selectedRoomId, message);
+        handleIncomingMessage(selectedRoomId, message);
 
         window.requestAnimationFrame(() => {
           if (!chatRoomContentRef.current) return;
@@ -909,7 +1097,7 @@ export default function FloatingChatWidget({
     return () => {
       stream.close();
     };
-  }, [currentUserId, selectedConversation, selectedRoomId, mockMode]);
+  }, [currentUserId, selectedConversation, selectedRoomId, mockMode, notifyIncomingMessage]);
 
   useEffect(() => {
     resizeChatRoomTextarea();
@@ -933,36 +1121,79 @@ export default function FloatingChatWidget({
     });
   }, [selectedRoomId, selectedRoomMessages.length]);
 
-  const renderHome = () => (
-    <div className="floating-chat-home">
-      <header className="floating-chat-brand">
-        <div className="floating-chat-brand-mark" aria-hidden="true">B</div>
-        <div>
-          <h2>{text.brandName}</h2>
-          <p className="floating-chat-brand-hours">{text.operatingHours}</p>
-        </div>
-      </header>
+  const renderHome = () => {
+    if (isSupportUser) {
+      return (
+        <div className="floating-chat-home">
+          <header className="floating-chat-brand floating-chat-admin-brand">
+            <div className="floating-chat-brand-mark" aria-hidden="true">B</div>
+            <div>
+              <h2>{text.brandName}</h2>
+              <p className="floating-chat-brand-hours">실시간 상담 관리</p>
+            </div>
+          </header>
 
-      <section className="floating-chat-welcome-card">
-        <p>
-          {text.greeting}
-          <br />
-          {text.helpQuestion}
-        </p>
-        <button
-          type="button"
-          className="floating-chat-primary-action"
-          onClick={isSupportUser ? () => setActiveTab("chat") : openNewInquiry}
-        >
-          {text.inquiryButton} <FaPaperPlane aria-hidden="true" />
-        </button>
-        <div className="floating-chat-hours">
-          <FaRegClock aria-hidden="true" />
-          <span>{text.operatingHours}</span>
+          <section className="floating-chat-welcome-card floating-chat-admin-card">
+            <div className="floating-chat-admin-card-head">
+              <div>
+                <span className="floating-chat-admin-status">
+                  <span aria-hidden="true"></span>
+                  상담 대기 중
+                </span>
+                <strong>상담 데스크</strong>
+                <p>회원 문의를 확인하고 응답해주세요.</p>
+              </div>
+              <button
+                type="button"
+                className="floating-chat-admin-action"
+                onClick={() => setActiveTab("chat")}
+              >
+                문의함 보기 <FaPaperPlane aria-hidden="true" />
+              </button>
+            </div>
+            <div className="floating-chat-admin-metrics" aria-label="상담 요약">
+              새 문의 <strong>{supportNewInquiryCount}</strong>
+              <span aria-hidden="true">·</span>
+              읽지 않음 <strong>{unreadTotal}</strong>
+              <span aria-hidden="true">·</span>
+              전체 <strong>{sortedConversations.length}</strong>
+            </div>
+          </section>
         </div>
-      </section>
-    </div>
-  );
+      );
+    }
+
+    return (
+      <div className="floating-chat-home">
+        <header className="floating-chat-brand">
+          <div className="floating-chat-brand-mark" aria-hidden="true">B</div>
+          <div>
+            <h2>{text.brandName}</h2>
+            <p className="floating-chat-brand-hours">{text.operatingHours}</p>
+          </div>
+        </header>
+
+        <section className="floating-chat-welcome-card">
+          <p>
+            {text.greeting}
+            <br />
+            {text.helpQuestion}
+          </p>
+          <button
+            type="button"
+            className="floating-chat-primary-action"
+            onClick={openNewInquiry}
+          >
+            {text.inquiryButton} <FaPaperPlane aria-hidden="true" />
+          </button>
+          <div className="floating-chat-hours">
+            <FaRegClock aria-hidden="true" />
+            <span>{text.operatingHours}</span>
+          </div>
+        </section>
+      </div>
+    );
+  };
 
   const openNewInquiry = () => {
     if (isSupportUser) {
@@ -1103,21 +1334,38 @@ export default function FloatingChatWidget({
       {isNewInquiryOpen ? renderNewInquiry() : selectedConversation ? (
         renderChatRoom()
       ) : sortedConversations.length > 0 ? (
-        <div className="floating-chat-list" role="list">
-          {sortedConversations.map((conversation) => (
-            <button
-              type="button"
-              className="floating-chat-list-row"
-              key={conversation.roomId || conversation.id}
-              onClick={() => openConversation(conversation)}
-            >
-              <span className="floating-chat-partner-name">{getConversationDisplayName(conversation)}</span>
-              <time dateTime={conversation.lastMessageAt}>
-                {formatLastMessageTime(conversation.lastMessageAt)}
-              </time>
+        <>
+          <div className="floating-chat-list" role="list">
+            {sortedConversations.map((conversation) => {
+              const conversationRoomId = conversation.roomId || conversation.id;
+              const unreadCount = unreadCounts[conversationRoomId] || 0;
+
+              return (
+                <button
+                  type="button"
+                  className="floating-chat-list-row"
+                  key={conversationRoomId}
+                  onClick={() => openConversation(conversation)}
+                >
+                  <span className="floating-chat-partner-name">{getConversationDisplayName(conversation)}</span>
+                  <span className="floating-chat-list-meta">
+                    {unreadCount > 0 && (
+                      <span className="floating-chat-unread-badge">{formatUnreadCount(unreadCount)}</span>
+                    )}
+                    <time dateTime={conversation.lastMessageAt}>
+                      {formatLastMessageTime(conversation.lastMessageAt)}
+                    </time>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          {!isSupportUser && (
+            <button type="button" className="floating-chat-new-inquiry" onClick={openNewInquiry}>
+              {text.newInquiryButton} <FaPaperPlane aria-hidden="true" />
             </button>
-          ))}
-        </div>
+          )}
+        </>
       ) : (
         <div className="floating-chat-chat-empty">
           <h2 className="floating-chat-page-title">{text.chatTitle}</h2>
@@ -1277,7 +1525,14 @@ export default function FloatingChatWidget({
                     }
                   }}
                 >
-                  <Icon aria-hidden="true" />
+                  <span className="floating-chat-tab-icon-wrap">
+                    <Icon aria-hidden="true" />
+                    {tab.id === "chat" && unreadTotal > 0 && (
+                      <span className="floating-chat-unread-badge floating-chat-tab-badge">
+                        {formatUnreadCount(unreadTotal)}
+                      </span>
+                    )}
+                  </span>
                   <span>{text.tabs[tab.id]}</span>
                 </button>
               );
@@ -1285,6 +1540,25 @@ export default function FloatingChatWidget({
           </nav>
         )}
       </section>
+
+      {inAppNotification && (
+        <button
+          type="button"
+          className="floating-chat-in-app-notification"
+          onClick={() => {
+            const targetRoom = sortedConversations.find((conversation) => (
+              (conversation.roomId || conversation.id) === inAppNotification.roomId
+            ));
+            setInAppNotification(null);
+            setIsChatOpen(true);
+            setActiveTab("chat");
+            if (targetRoom) openConversation(targetRoom);
+          }}
+        >
+          <strong>{inAppNotification.title}</strong>
+          <span>{inAppNotification.message}</span>
+        </button>
+      )}
 
       <button
         type="button"
@@ -1301,6 +1575,11 @@ export default function FloatingChatWidget({
         aria-expanded={isChatOpen}
       >
         {isChatOpen ? <CloseIcon /> : <ChatIcon />}
+        {unreadTotal > 0 && !isChatOpen && (
+          <span className="floating-chat-unread-badge floating-chat-button-badge">
+            {formatUnreadCount(unreadTotal)}
+          </span>
+        )}
       </button>
     </div>
   );

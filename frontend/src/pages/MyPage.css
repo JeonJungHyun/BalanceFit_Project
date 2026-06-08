@@ -306,8 +306,9 @@
 }
 
 .program-meta-info h4 {
-  margin: 0 0 6px 0;
+  margin: 0 0 1px 0;
   font-size: 18px;
+  line-height: 1.1;
   font-weight: 700;
   color: #111111;
   
@@ -322,6 +323,7 @@
   align-items: center;
   gap: 14px;
   font-size: 14px;
+  line-height: 1.1;
   color: #495057;
 }
 
