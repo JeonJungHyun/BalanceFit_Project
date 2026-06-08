@@ -59,6 +59,22 @@ public class ChatRepository {
         }
     }
 
+    public ChatRoom findRoomByMemberIdAndTeacherId(String memberId, String teacherId) {
+        try {
+            List<ChatRoom> rooms = firestore.collection(CHAT_ROOMS)
+                    .whereEqualTo("memberId", memberId)
+                    .whereEqualTo("teacherId", teacherId)
+                    .limit(1)
+                    .get()
+                    .get()
+                    .toObjects(ChatRoom.class);
+
+            return rooms.isEmpty() ? null : rooms.get(0);
+        } catch (Exception e) {
+            throw new RuntimeException("강사 채팅방 조회 실패: " + memberId + ", " + teacherId, e);
+        }
+    }
+
     public List<ChatRoom> findRoomsBySupportId(String supportId) {
         try {
             return firestore.collection(CHAT_ROOMS)

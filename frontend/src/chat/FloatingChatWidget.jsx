@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import {
   FaBell,
   FaChevronRight,
@@ -346,13 +346,13 @@ function createMockReply(userMessage) {
   return "테스트 상담원이 자동 응답했습니다. 이 메시지는 서버에 저장되지 않습니다.";
 }
 
-export default function FloatingChatWidget({
+const FloatingChatWidget = forwardRef(function FloatingChatWidget({
   conversations = defaultConversations,
   accountType,
   mockMode = false,
   initialOpen = false,
   mockUser = { userId: "test-member", name: "테스트 회원" },
-}) {
+}, ref) {
   const [isChatOpen, setIsChatOpen] = useState(initialOpen);
   const [activeTab, setActiveTab] = useState("home");
   const [selectedConversation, setSelectedConversation] = useState(null);
@@ -734,7 +734,7 @@ export default function FloatingChatWidget({
   };
 
   const loadRoomMessages = async (roomId) => {
-    if (!currentUserId) throw new Error("Missing userId");
+    if (!currentUserId && !localStorage.getItem("userId")) throw new Error("Missing userId");
 
     if (mockMode) {
       return roomMessages[roomId] || mockInitialMessages;
@@ -822,6 +822,78 @@ export default function FloatingChatWidget({
       setChatError("상담방을 열지 못했어요.");
     }
   };
+
+  const openInstructorRoom = async ({ classId, instructorName }) => {
+    if (!classId) {
+      setChatError("강사 정보를 찾을 수 없습니다.");
+      setIsChatOpen(true);
+      setActiveTab("chat");
+      return false;
+    }
+
+    const storedUserId = localStorage.getItem("userId") || currentUserId;
+    if (!storedUserId) {
+      setChatError("로그인이 필요합니다.");
+      setIsChatOpen(true);
+      setActiveTab("chat");
+      return false;
+    }
+
+    setIsChatOpen(true);
+    setActiveTab("chat");
+    setIsNewInquiryOpen(false);
+    setInquiryOpenedAt(null);
+    setChatError("");
+    setCurrentUserId(storedUserId);
+
+    if (mockMode) {
+      const room = {
+        roomId: `mock-instructor-${classId}`,
+        memberId: storedUserId,
+        teacherId: classId,
+        partnerName: instructorName || classId,
+        partnerRole: "INSTRUCTOR",
+        lastMessage: "",
+        lastMessageAt: new Date().toISOString(),
+      };
+      setChatRooms((rooms) => {
+        const nextRooms = rooms.filter((existingRoom) => existingRoom.roomId !== room.roomId);
+        return [room, ...nextRooms];
+      });
+      await openConversation(room);
+      return true;
+    }
+
+    try {
+      const response = await fetch(
+        `${CHAT_API_BASE_URL}/rooms/instructor`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ classId, instructorName }),
+        }
+      );
+
+      if (!response.ok) throw new Error("Failed to open instructor room");
+
+      const room = await response.json();
+      if (room?.memberId) setCurrentUserId(room.memberId);
+      setChatRooms((rooms) => {
+        const nextRooms = rooms.filter((existingRoom) => existingRoom.roomId !== room.roomId);
+        return [room, ...nextRooms];
+      });
+      await openConversation(room);
+      return true;
+    } catch {
+      setChatError("상담방을 열지 못했어요.");
+      return false;
+    }
+  };
+
+  useImperativeHandle(ref, () => ({
+    openInstructorRoom,
+  }));
 
   const selectedRoomId = selectedConversation?.roomId || selectedConversation?.id;
   const selectedRoomMessages = selectedRoomId ? roomMessages[selectedRoomId] || [] : [];
@@ -1583,4 +1655,6 @@ export default function FloatingChatWidget({
       </button>
     </div>
   );
-}
+});
+
+export default FloatingChatWidget;

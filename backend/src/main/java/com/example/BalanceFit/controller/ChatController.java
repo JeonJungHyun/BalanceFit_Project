@@ -1,6 +1,7 @@
 package com.example.BalanceFit.controller;
 
 import com.example.BalanceFit.dto.ChatMessageRequest;
+import com.example.BalanceFit.dto.ChatInstructorRoomRequest;
 import com.example.BalanceFit.entity.ChatMessage;
 import com.example.BalanceFit.entity.ChatRoom;
 import com.example.BalanceFit.service.ChatService;
@@ -31,6 +32,25 @@ public class ChatController {
         try {
             String userId = getAuthenticatedUserId(session);
             return ResponseEntity.ok(chatService.getOrCreateSupportRoom(userId));
+        } catch (UnauthenticatedException e) {
+            return ResponseEntity.status(401).body(e.getMessage());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @PostMapping("/rooms/instructor")
+    public ResponseEntity<?> getOrCreateInstructorRoom(
+            HttpSession session,
+            @RequestBody ChatInstructorRoomRequest request
+    ) {
+        try {
+            String userId = getAuthenticatedUserId(session);
+            return ResponseEntity.ok(chatService.getOrCreateInstructorRoom(
+                    userId,
+                    request == null ? null : request.getClassId(),
+                    request == null ? null : request.getInstructorName()
+            ));
         } catch (UnauthenticatedException e) {
             return ResponseEntity.status(401).body(e.getMessage());
         } catch (IllegalArgumentException e) {

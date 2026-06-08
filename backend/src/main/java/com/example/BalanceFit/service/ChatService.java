@@ -6,6 +6,8 @@ import com.example.BalanceFit.repository.ChatRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.List;
 
 @Service
@@ -41,6 +43,33 @@ public class ChatService {
         room.setCreatedAt(now);
         room.setLastMessageAt(now);
         room.setUnreadMessageSupport(false);
+        room.setUnreadMessageMember(false);
+
+        chatRepository.saveRoom(room);
+        return room;
+    }
+
+    public ChatRoom getOrCreateInstructorRoom(String userId, String classId, String instructorName) {
+        validateUserId(userId);
+        validateTeacherId(classId);
+
+        ChatRoom existingRoom = chatRepository.findRoomByMemberIdAndTeacherId(userId, classId);
+        if (existingRoom != null) {
+            return existingRoom;
+        }
+
+        long now = System.currentTimeMillis();
+
+        ChatRoom room = new ChatRoom();
+        room.setRoomId(instructorRoomId(userId, classId));
+        room.setMemberId(userId);
+        room.setTeacherId(classId);
+        room.setPartnerName(normalizeInstructorName(instructorName, classId));
+        room.setPartnerRole("INSTRUCTOR");
+        room.setLastMessage("");
+        room.setCreatedAt(now);
+        room.setLastMessageAt(now);
+        room.setUnreadMessageTeacher(false);
         room.setUnreadMessageMember(false);
 
         chatRepository.saveRoom(room);
@@ -122,9 +151,30 @@ public class ChatService {
         return "support_" + userId;
     }
 
+    private String instructorRoomId(String userId, String teacherId) {
+        String key = userId + ":" + teacherId;
+        return "instructor_" + Base64.getUrlEncoder()
+                .withoutPadding()
+                .encodeToString(key.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private String normalizeInstructorName(String instructorName, String fallback) {
+        if (instructorName == null || instructorName.isBlank()) {
+            return fallback;
+        }
+
+        return instructorName.trim();
+    }
+
     private void validateUserId(String userId) {
         if (userId == null || userId.isBlank()) {
             throw new IllegalArgumentException("로그인이 필요합니다.");
+        }
+    }
+
+    private void validateTeacherId(String teacherId) {
+        if (teacherId == null || teacherId.isBlank()) {
+            throw new IllegalArgumentException("강사 정보를 찾을 수 없습니다.");
         }
     }
 }
