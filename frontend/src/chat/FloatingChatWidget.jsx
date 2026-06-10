@@ -1,4 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import axios from "axios";
 import {
   FaBell,
   FaChevronRight,
@@ -685,13 +686,14 @@ const FloatingChatWidget = forwardRef(function FloatingChatWidget({
   };
 
   const openConversation = async (conversation) => {
+    const roomId = conversation.roomId || conversation.id;
+
     setActiveTab("chat");
     setSelectedConversation(conversation);
+    console.log("Active Room Set:", roomId);
     setIsNewInquiryOpen(false);
     setInquiryOpenedAt(null);
     setChatError("");
-
-    const roomId = conversation.roomId || conversation.id;
 
     try {
       const messages = await loadRoomMessages(roomId);
@@ -699,6 +701,7 @@ const FloatingChatWidget = forwardRef(function FloatingChatWidget({
         ...currentMessages,
         [roomId]: Array.isArray(messages) ? messages : [],
       }));
+      console.log("Chat Room Opened:", roomId);
     } catch {
       setChatError("메시지를 불러오지 못했어요.");
     }
@@ -757,6 +760,7 @@ const FloatingChatWidget = forwardRef(function FloatingChatWidget({
   };
 
   const openInstructorRoom = async ({ classId, instructorName }) => {
+    console.log("Room Lookup Started");
     if (!classId) {
       setChatError("강사 정보를 찾을 수 없습니다.");
       setIsChatOpen(true);
@@ -772,12 +776,14 @@ const FloatingChatWidget = forwardRef(function FloatingChatWidget({
       return false;
     }
 
+    console.log("Current User:", storedUserId);
+    console.log("Selected Instructor:", classId);
     setIsChatOpen(true);
+    console.log("Widget Opened");
     setActiveTab("chat");
     setIsNewInquiryOpen(false);
     setInquiryOpenedAt(null);
     setChatError("");
-    setCurrentUserId(storedUserId);
 
     if (mockMode) {
       const room = {
@@ -793,32 +799,32 @@ const FloatingChatWidget = forwardRef(function FloatingChatWidget({
         const nextRooms = rooms.filter((existingRoom) => existingRoom.roomId !== room.roomId);
         return [room, ...nextRooms];
       });
+      console.log("Room Created:", room.roomId);
       await openConversation(room);
       return true;
     }
 
     try {
-      const response = await fetch(
+      const response = await axios.post(
         `${CHAT_API_BASE_URL}/rooms/instructor`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ classId, instructorName }),
-        }
+        { classId, instructorName },
+        { withCredentials: true }
       );
 
-      if (!response.ok) throw new Error("Failed to open instructor room");
+      const room = response.data;
+      if (!room?.roomId) {
+        throw new Error("Room document id was not returned");
+      }
 
-      const room = await response.json();
-      if (room?.memberId) setCurrentUserId(room.memberId);
+      console.log("Room Found:", room.roomId);
       setChatRooms((rooms) => {
         const nextRooms = rooms.filter((existingRoom) => existingRoom.roomId !== room.roomId);
         return [room, ...nextRooms];
       });
       await openConversation(room);
       return true;
-    } catch {
+    } catch (error) {
+      console.error("Room Creation Failed:", error?.response?.data || error.message);
       setChatError("상담방을 열지 못했어요.");
       return false;
     }

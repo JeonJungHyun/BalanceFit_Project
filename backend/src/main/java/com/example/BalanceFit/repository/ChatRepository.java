@@ -44,6 +44,26 @@ public class ChatRepository {
         }
     }
 
+    public ChatRoom findInstructorRoom(String memberId, String teacherId) {
+        try {
+            List<QueryDocumentSnapshot> documents = firestore.collection(CHAT_ROOMS)
+                    .whereEqualTo("memberId", memberId)
+                    .whereEqualTo("teacherId", teacherId)
+                    .limit(1)
+                    .get()
+                    .get()
+                    .getDocuments();
+
+            if (documents.isEmpty()) {
+                return null;
+            }
+
+            return documents.get(0).toObject(ChatRoom.class);
+        } catch (Exception e) {
+            throw new RuntimeException("강사 상담방 조회 실패: " + memberId + ", " + teacherId, e);
+        }
+    }
+
     public List<ChatRoom> findRoomsByMemberId(String memberId) {
         try {
             return firestore.collection(CHAT_ROOMS)
@@ -114,10 +134,18 @@ public class ChatRepository {
                 return;
             }
 
-            if (room.getSupportId().equals(userId)) {
+            if (userId.equals(room.getSupportId())) {
                 firestore.collection(CHAT_ROOMS)
                         .document(room.getRoomId())
                         .update("unreadMessageSupport", false)
+                        .get();
+                return;
+            }
+
+            if (userId.equals(room.getTeacherId())) {
+                firestore.collection(CHAT_ROOMS)
+                        .document(room.getRoomId())
+                        .update("unreadMessageTeacher", false)
                         .get();
             }
         } catch (Exception e) {

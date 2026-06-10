@@ -61,10 +61,13 @@ export default function ClassList() {
   };
 
   const consultInstructor = async (classItem) => {
+    console.log("Consultation Button Clicked");
     const userId = localStorage.getItem("userId");
     if (!userId) { alert("로그인이 필요합니다."); return; }
     if (!chatWidgetRef.current?.openInstructorRoom) { alert("상담방을 열지 못했어요."); return; }
 
+    console.log("Current User:", userId);
+    console.log("Selected Instructor:", classItem.classId);
     setOpeningChatClassId(classItem.classId);
     try {
       await chatWidgetRef.current.openInstructorRoom({

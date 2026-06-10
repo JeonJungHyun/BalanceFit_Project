@@ -6,7 +6,9 @@ import com.example.BalanceFit.repository.ChatRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -47,6 +49,49 @@ public class ChatService {
         return room;
     }
 
+    public ChatRoom getOrCreateInstructorRoom(String userId, String classId, String instructorName) {
+        validateUserId(userId);
+        validateClassId(classId);
+
+        System.out.println("Room Lookup Started: memberId=" + userId + ", teacherId=" + classId);
+        ChatRoom existingRoom = chatRepository.findInstructorRoom(userId, classId);
+        if (existingRoom != null) {
+            System.out.println("Room Found: roomId=" + existingRoom.getRoomId());
+            return existingRoom;
+        }
+
+        System.out.println("Room Not Found: memberId=" + userId + ", teacherId=" + classId);
+
+        long now = System.currentTimeMillis();
+        String roomId = instructorRoomId(userId, classId);
+
+        ChatRoom room = new ChatRoom();
+        room.setRoomId(roomId);
+        room.setMemberId(userId);
+        room.setTeacherId(classId);
+        room.setPartnerName(resolveInstructorName(instructorName, classId));
+        room.setPartnerRole("INSTRUCTOR");
+        room.setLastMessage("");
+        room.setCreatedAt(now);
+        room.setLastMessageAt(null);
+        room.setUnreadMessageTeacher(false);
+        room.setUnreadMessageMember(false);
+
+        try {
+            chatRepository.saveRoom(room);
+            ChatRoom savedRoom = chatRepository.findRoomById(roomId);
+            if (savedRoom == null || savedRoom.getRoomId() == null || savedRoom.getRoomId().isBlank()) {
+                throw new IllegalStateException("Created room document is missing or invalid: " + roomId);
+            }
+
+            System.out.println("Room Created: roomId=" + savedRoom.getRoomId());
+            return savedRoom;
+        } catch (RuntimeException e) {
+            System.out.println("Room Creation Failed: " + e.getMessage());
+            throw e;
+        }
+    }
+
     public List<ChatRoom> getRooms(String userId) {
         validateUserId(userId);
 
@@ -74,11 +119,14 @@ public class ChatService {
         }
 
         long now = System.currentTimeMillis();
+        boolean isSupportSender = SUPPORT_ID.equals(userId);
+        boolean isInstructorRoom = room.getTeacherId() != null && !room.getTeacherId().isBlank();
+        boolean isTeacherSender = userId.equals(room.getTeacherId());
 
         ChatMessage message = new ChatMessage();
         message.setRoomId(roomId);
         message.setSenderId(userId);
-        message.setSenderType(SUPPORT_ID.equals(userId) ? "SUPPORT" : "USER");
+        message.setSenderType(isTeacherSender ? "INSTRUCTOR" : isSupportSender ? "SUPPORT" : "USER");
         message.setMessage(messageText);
         message.setCreatedAt(now);
         message.setIsRead(false);
@@ -87,8 +135,13 @@ public class ChatService {
 
         room.setLastMessage(messageText);
         room.setLastMessageAt(now);
-        room.setUnreadMessageSupport(!SUPPORT_ID.equals(userId));
-        room.setUnreadMessageMember(SUPPORT_ID.equals(userId));
+        if (isInstructorRoom) {
+            room.setUnreadMessageTeacher(!isTeacherSender);
+            room.setUnreadMessageMember(isTeacherSender);
+        } else {
+            room.setUnreadMessageSupport(!isSupportSender);
+            room.setUnreadMessageMember(isSupportSender);
+        }
         chatRepository.saveRoom(room);
         chatStreamService.emitMessage(savedMessage);
 
@@ -111,7 +164,9 @@ public class ChatService {
             throw new SecurityException("접근할 수 없는 채팅방입니다.");
         }
 
-        if (!userId.equals(room.getMemberId()) && !userId.equals(room.getSupportId())) {
+        if (!userId.equals(room.getMemberId())
+                && !userId.equals(room.getSupportId())
+                && !userId.equals(room.getTeacherId())) {
             throw new SecurityException("접근할 수 없는 채팅방입니다.");
         }
 
@@ -122,9 +177,28 @@ public class ChatService {
         return "support_" + userId;
     }
 
+    private String instructorRoomId(String userId, String classId) {
+        String key = userId + ":" + classId;
+        return "instructor_" + UUID.nameUUIDFromBytes(key.getBytes(StandardCharsets.UTF_8));
+    }
+
     private void validateUserId(String userId) {
         if (userId == null || userId.isBlank()) {
             throw new IllegalArgumentException("로그인이 필요합니다.");
         }
+    }
+
+    private void validateClassId(String classId) {
+        if (classId == null || classId.isBlank()) {
+            throw new IllegalArgumentException("강사 정보를 찾을 수 없습니다.");
+        }
+    }
+
+    private String resolveInstructorName(String instructorName, String classId) {
+        if (instructorName == null || instructorName.isBlank()) {
+            return classId;
+        }
+
+        return instructorName;
     }
 }
