@@ -60,20 +60,83 @@ export default function ClassList() {
       .catch(() => alert("예약 실패"));
   };
 
+  const loadAuthenticatedUser = async () => {
+    console.log("Authentication State Loaded: request started");
+    const response = await axios.get("http://localhost:8080/users/me", { withCredentials: true });
+    const user = response.data;
+    const userId = user?.userId || "";
+
+    if (!userId) {
+      throw new Error("Authenticated user id is missing");
+    }
+
+    localStorage.setItem("userId", userId);
+    if (user?.name) localStorage.setItem("userName", user.name);
+    console.log("Authentication Loaded");
+    console.log("Current User UID Found:", userId);
+    console.log("Current User Loaded:", userId);
+    return user;
+  };
+
+  const loadSelectedClass = async (classId) => {
+    console.log("Backend Request Started:", classId);
+    const response = await axios.get(`http://localhost:8080/classes/${encodeURIComponent(classId)}`, {
+      withCredentials: true,
+    });
+    console.log("Backend Request Success:", classId);
+
+    const selectedClass = response.data;
+    if (!selectedClass?.classId) {
+      console.log("Class ID Missing");
+      throw new Error("Selected class id is missing");
+    }
+
+    console.log("Class ID Found:", selectedClass.classId);
+    if (!selectedClass?.instructor) {
+      console.log("Instructor Missing");
+      throw new Error("Selected class instructor is missing");
+    }
+
+    console.log("Instructor Found:", selectedClass.instructor);
+    console.log("Selected Class Loaded:", selectedClass);
+    return selectedClass;
+  };
+
   const consultInstructor = async (classItem) => {
     console.log("Consultation Button Clicked");
-    const userId = localStorage.getItem("userId");
-    if (!userId) { alert("로그인이 필요합니다."); return; }
+    const classId = classItem?.classId;
+    if (!classId) {
+      console.log("Class ID Missing");
+      alert("상담방을 열지 못했어요.");
+      return;
+    }
+
     if (!chatWidgetRef.current?.openInstructorRoom) { alert("상담방을 열지 못했어요."); return; }
 
-    console.log("Current User:", userId);
-    console.log("Selected Instructor:", classItem.classId);
-    setOpeningChatClassId(classItem.classId);
+    setOpeningChatClassId(classId);
     try {
+      const user = await loadAuthenticatedUser();
+      const selectedClass = await loadSelectedClass(classId);
+
       await chatWidgetRef.current.openInstructorRoom({
-        classId: classItem.classId,
-        instructorName: classItem.instructor,
+        classId: selectedClass.classId,
+        instructorName: selectedClass.instructor,
+        userId: user.userId,
       });
+    } catch (error) {
+      const status = error?.response?.status;
+      if (status === 401) {
+        console.log("Authentication State Loaded: unauthenticated");
+        alert("로그인이 필요합니다.");
+        return;
+      }
+
+      if (status === 404) {
+        console.log("Firestore Class Missing:", classId);
+      }
+
+      console.error("Selected Class Load Failed:", error?.response?.data || error.message);
+      alert("상담방을 열지 못했어요.");
     } finally {
       setOpeningChatClassId("");
     }

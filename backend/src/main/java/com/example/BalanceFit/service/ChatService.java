@@ -53,18 +53,19 @@ public class ChatService {
         validateUserId(userId);
         validateClassId(classId);
 
-        System.out.println("Room Lookup Started: memberId=" + userId + ", teacherId=" + classId);
+        System.out.println("Firestore Lookup Started: memberId=" + userId + ", teacherId=" + classId);
         ChatRoom existingRoom = chatRepository.findInstructorRoom(userId, classId);
         if (existingRoom != null) {
-            System.out.println("Room Found: roomId=" + existingRoom.getRoomId());
+            System.out.println("Existing Room Found: roomId=" + existingRoom.getRoomId());
             return existingRoom;
         }
 
-        System.out.println("Room Not Found: memberId=" + userId + ", teacherId=" + classId);
+        System.out.println("No Existing Room Found: memberId=" + userId + ", teacherId=" + classId);
 
         long now = System.currentTimeMillis();
         String roomId = instructorRoomId(userId, classId);
 
+        System.out.println("Room Creation Started: roomId=" + roomId);
         ChatRoom room = new ChatRoom();
         room.setRoomId(roomId);
         room.setMemberId(userId);
@@ -84,7 +85,7 @@ public class ChatService {
                 throw new IllegalStateException("Created room document is missing or invalid: " + roomId);
             }
 
-            System.out.println("Room Created: roomId=" + savedRoom.getRoomId());
+            System.out.println("Room Creation Success: roomId=" + savedRoom.getRoomId());
             return savedRoom;
         } catch (RuntimeException e) {
             System.out.println("Room Creation Failed: " + e.getMessage());
@@ -94,15 +95,10 @@ public class ChatService {
 
     public List<ChatRoom> getRooms(String userId) {
         validateUserId(userId);
-
-        if (SUPPORT_ID.equals(userId)) {
-            return chatRepository.findRoomsBySupportId(userId)
-                    .stream()
-                    .filter(room -> !SUPPORT_ID.equals(room.getMemberId()))
-                    .toList();
-        }
-
-        return chatRepository.findRoomsByMemberId(userId);
+        System.out.println("Chat Room Load Started: userId=" + userId);
+        List<ChatRoom> rooms = chatRepository.findAllRooms();
+        System.out.println("Rooms Loaded: " + rooms.size());
+        return rooms;
     }
 
     public List<ChatMessage> getMessages(String roomId, String userId) {

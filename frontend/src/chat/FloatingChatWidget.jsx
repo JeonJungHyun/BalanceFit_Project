@@ -370,6 +370,7 @@ const FloatingChatWidget = forwardRef(function FloatingChatWidget({
   const chatRoomSendingRef = useRef({});
   const languageListRef = useRef(null);
   const languageScrollbarTimerRef = useRef(null);
+  const previousUserIdRef = useRef(currentUserId);
   const text = getMessages(selectedLanguage);
   const normalizedAccountType = (accountType || getAccountType()).toUpperCase();
   const isSupportUser = currentUserId === SUPPORT_USER_ID;
@@ -390,19 +391,63 @@ const FloatingChatWidget = forwardRef(function FloatingChatWidget({
   const getConversationDisplayName = (conversation) => {
     if (!conversation) return "";
 
+    let displayName = "";
     if (conversation.supportId === SUPPORT_USER_ID && conversation.memberId !== SUPPORT_USER_ID) {
-      return isSupportUser
-        ? `${userDisplayNames[conversation.memberId] || conversation.memberId} 님`
+      displayName = isSupportUser
+        ? `${userDisplayNames[conversation.memberId] || conversation.memberId}님`
         : conversation.partnerName || "밸런스핏 상담";
+      console.log("Participant Name Resolved:", conversation.roomId, displayName);
+      return displayName;
     }
 
-    if (normalizedAccountType === "INSTRUCTOR") {
-      return `${conversation.partnerName} 님`;
+    if (conversation.teacherId && conversation.teacherId === currentUserId) {
+      displayName = `${userDisplayNames[conversation.memberId] || conversation.memberId}님`;
+      console.log("Participant Name Resolved:", conversation.roomId, displayName);
+      return displayName;
     }
 
-    return conversation.partnerRole === "INSTRUCTOR"
-      ? `${conversation.partnerName} 강사님`
-      : `${conversation.partnerName} 님`;
+    if (conversation.memberId && conversation.memberId === currentUserId) {
+      const instructorName = conversation.partnerName || getInstructorNameFromClassId(conversation.teacherId);
+      displayName = conversation.teacherId
+        ? `${instructorName} 강사님`
+        : `${conversation.partnerName || SUPPORT_USER_ID}님`;
+      console.log("Participant Name Resolved:", conversation.roomId, displayName);
+      return displayName;
+    }
+
+    displayName = conversation.partnerRole === "INSTRUCTOR" || conversation.teacherId
+      ? `${conversation.partnerName || getInstructorNameFromClassId(conversation.teacherId)} 강사님`
+      : `${conversation.partnerName || conversation.memberId || conversation.roomId}님`;
+    console.log("Participant Name Resolved:", conversation.roomId, displayName);
+    return displayName;
+  };
+
+  const getInstructorNameFromClassId = (classId) => {
+    if (!classId) return "";
+    const parts = classId.split("_");
+    return parts[parts.length - 1] || classId;
+  };
+
+  const hasUnreadForCurrentUser = (conversation) => {
+    if (!conversation || !currentUserId) return false;
+
+    let hasUnread = false;
+    if (conversation.memberId === currentUserId) {
+      hasUnread = Boolean(conversation.unreadMessageMember);
+    } else if (conversation.teacherId === currentUserId) {
+      hasUnread = Boolean(conversation.unreadMessageTeacher);
+    } else if (conversation.supportId === currentUserId) {
+      hasUnread = Boolean(conversation.unreadMessageSupport);
+    }
+
+    console.log("Unread Status Resolved:", conversation.roomId, hasUnread);
+    return hasUnread;
+  };
+
+  const getConversationTimestamp = (conversation) => {
+    const value = conversation?.lastMessageAt || conversation?.createdAt || 0;
+    const timestamp = new Date(value).getTime();
+    return Number.isNaN(timestamp) ? 0 : timestamp;
   };
 
   const getMessageSenderDisplayName = (message, conversation) => {
@@ -422,18 +467,22 @@ const FloatingChatWidget = forwardRef(function FloatingChatWidget({
   const sortedConversations = useMemo(() => {
     const conversationMap = new Map();
 
-    conversations.forEach((conversation) => {
-      conversationMap.set(conversation.roomId || conversation.id, conversation);
-    });
+    if (mockMode) {
+      conversations.forEach((conversation) => {
+        conversationMap.set(conversation.roomId || conversation.id, conversation);
+      });
+    }
 
     chatRooms.forEach((conversation) => {
       conversationMap.set(conversation.roomId || conversation.id, conversation);
     });
 
-    return [...conversationMap.values()].sort((a, b) => {
-      return new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime();
+    const sortedRooms = [...conversationMap.values()].sort((a, b) => {
+      return getConversationTimestamp(b) - getConversationTimestamp(a);
     });
-  }, [chatRooms, conversations]);
+    console.log("Rooms Sorted:", sortedRooms.map((room) => room.roomId || room.id));
+    return sortedRooms;
+  }, [chatRooms, conversations, mockMode]);
 
   const emptyMessage = normalizedAccountType === "INSTRUCTOR"
     ? text.instructorEmpty
@@ -497,6 +546,11 @@ const FloatingChatWidget = forwardRef(function FloatingChatWidget({
   useEffect(() => {
     if (mockMode) return;
 
+    const previousUserId = previousUserIdRef.current;
+    previousUserIdRef.current = currentUserId;
+
+    if (!previousUserId || previousUserId === currentUserId) return;
+
     setSelectedConversation(null);
     setIsNewInquiryOpen(false);
     setInquiryOpenedAt(null);
@@ -513,15 +567,23 @@ const FloatingChatWidget = forwardRef(function FloatingChatWidget({
 
     let isMounted = true;
 
+    console.log("Chat Widget Opened");
+    console.log("Chat Room Load Started");
+    console.log("Firestore Query Started");
     fetch(`${CHAT_API_BASE_URL}/rooms`, { credentials: "include" })
       .then((response) => {
-        if (!response.ok) throw new Error("Failed to load chat rooms");
+        if (!response.ok) throw new Error(`Chat room load failed: ${response.status}`);
         return response.json();
       })
       .then((rooms) => {
-        if (isMounted) setChatRooms(Array.isArray(rooms) ? rooms : []);
+        if (!isMounted) return;
+        const nextRooms = Array.isArray(rooms) ? rooms : [];
+        console.log("Firestore Query Success");
+        console.log("Rooms Loaded:", nextRooms.length);
+        setChatRooms(nextRooms);
       })
-      .catch(() => {
+      .catch((error) => {
+        console.error("Chat Room Load Failed:", error.message);
         if (isMounted) setChatError("대화 목록을 불러오지 못했어요.");
       });
 
@@ -531,11 +593,11 @@ const FloatingChatWidget = forwardRef(function FloatingChatWidget({
   }, [currentUserId, isChatOpen, mockMode]);
 
   useEffect(() => {
-    if (!isSupportUser || chatRooms.length === 0) return undefined;
+    if (chatRooms.length === 0) return undefined;
 
     const missingMemberIds = [...new Set(chatRooms
       .map((room) => room.memberId)
-      .filter((memberId) => memberId && memberId !== SUPPORT_USER_ID && !userDisplayNames[memberId]))];
+      .filter((memberId) => memberId && memberId !== currentUserId && memberId !== SUPPORT_USER_ID && !userDisplayNames[memberId]))];
 
     if (missingMemberIds.length === 0) return undefined;
 
@@ -560,7 +622,7 @@ const FloatingChatWidget = forwardRef(function FloatingChatWidget({
     return () => {
       isMounted = false;
     };
-  }, [chatRooms, isSupportUser, userDisplayNames]);
+  }, [chatRooms, currentUserId, userDisplayNames]);
 
   const playNotificationPreview = () => {
     try {
@@ -702,6 +764,7 @@ const FloatingChatWidget = forwardRef(function FloatingChatWidget({
         [roomId]: Array.isArray(messages) ? messages : [],
       }));
       console.log("Chat Room Opened:", roomId);
+      console.log("Room Opened:", roomId);
     } catch {
       setChatError("메시지를 불러오지 못했어요.");
     }
@@ -759,8 +822,7 @@ const FloatingChatWidget = forwardRef(function FloatingChatWidget({
     }
   };
 
-  const openInstructorRoom = async ({ classId, instructorName }) => {
-    console.log("Room Lookup Started");
+  const openInstructorRoom = async ({ classId, instructorName, userId }) => {
     if (!classId) {
       setChatError("강사 정보를 찾을 수 없습니다.");
       setIsChatOpen(true);
@@ -768,7 +830,7 @@ const FloatingChatWidget = forwardRef(function FloatingChatWidget({
       return false;
     }
 
-    const storedUserId = localStorage.getItem("userId") || currentUserId;
+    const storedUserId = userId || localStorage.getItem("userId") || currentUserId;
     if (!storedUserId) {
       setChatError("로그인이 필요합니다.");
       setIsChatOpen(true);
@@ -778,8 +840,10 @@ const FloatingChatWidget = forwardRef(function FloatingChatWidget({
 
     console.log("Current User:", storedUserId);
     console.log("Selected Instructor:", classId);
-    setIsChatOpen(true);
-    console.log("Widget Opened");
+    console.log("Firestore Lookup Started");
+    if (storedUserId !== currentUserId) {
+      setCurrentUserId(storedUserId);
+    }
     setActiveTab("chat");
     setIsNewInquiryOpen(false);
     setInquiryOpenedAt(null);
@@ -799,7 +863,9 @@ const FloatingChatWidget = forwardRef(function FloatingChatWidget({
         const nextRooms = rooms.filter((existingRoom) => existingRoom.roomId !== room.roomId);
         return [room, ...nextRooms];
       });
-      console.log("Room Created:", room.roomId);
+      console.log("Room Creation Success:", room.roomId);
+      setIsChatOpen(true);
+      console.log("Widget Opened");
       await openConversation(room);
       return true;
     }
@@ -816,11 +882,13 @@ const FloatingChatWidget = forwardRef(function FloatingChatWidget({
         throw new Error("Room document id was not returned");
       }
 
-      console.log("Room Found:", room.roomId);
+      console.log("Existing Room Found:", room.roomId);
       setChatRooms((rooms) => {
         const nextRooms = rooms.filter((existingRoom) => existingRoom.roomId !== room.roomId);
         return [room, ...nextRooms];
       });
+      setIsChatOpen(true);
+      console.log("Widget Opened");
       await openConversation(room);
       return true;
     } catch (error) {
@@ -1182,19 +1250,28 @@ const FloatingChatWidget = forwardRef(function FloatingChatWidget({
         renderChatRoom()
       ) : sortedConversations.length > 0 ? (
         <div className="floating-chat-list" role="list">
-          {sortedConversations.map((conversation) => (
-            <button
-              type="button"
-              className="floating-chat-list-row"
-              key={conversation.roomId || conversation.id}
-              onClick={() => openConversation(conversation)}
-            >
-              <span className="floating-chat-partner-name">{getConversationDisplayName(conversation)}</span>
-              <time dateTime={conversation.lastMessageAt}>
-                {formatLastMessageTime(conversation.lastMessageAt)}
-              </time>
-            </button>
-          ))}
+          {sortedConversations.map((conversation) => {
+            const roomId = conversation.roomId || conversation.id;
+            const hasUnread = hasUnreadForCurrentUser(conversation);
+            console.log("Chat List Rendered:", roomId);
+
+            return (
+              <button
+                type="button"
+                className="floating-chat-list-row"
+                key={roomId}
+                onClick={() => openConversation(conversation)}
+              >
+                <span className="floating-chat-partner-name">{getConversationDisplayName(conversation)}</span>
+                <span className="floating-chat-list-meta">
+                  {hasUnread && <span className="floating-chat-unread-badge">N</span>}
+                  <time dateTime={conversation.lastMessageAt}>
+                    {formatLastMessageTime(conversation.lastMessageAt)}
+                  </time>
+                </span>
+              </button>
+            );
+          })}
         </div>
       ) : (
         <div className="floating-chat-chat-empty">

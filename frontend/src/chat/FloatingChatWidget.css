@@ -392,6 +392,27 @@
   white-space: nowrap;
 }
 
+.floating-chat-list-meta {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+}
+
+.floating-chat-unread-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  border-radius: 999px;
+  background: #e5484d;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
 .floating-chat-chat-empty {
   display: flex;
   flex-direction: column;

@@ -64,6 +64,23 @@ public class ChatRepository {
         }
     }
 
+    public List<ChatRoom> findAllRooms() {
+        try {
+            System.out.println("Firestore Query Started: chatRooms");
+            List<ChatRoom> rooms = firestore.collection(CHAT_ROOMS)
+                    .get()
+                    .get()
+                    .toObjects(ChatRoom.class)
+                    .stream()
+                    .sorted(Comparator.comparing(ChatRoom::getLastMessageAt, Comparator.nullsLast(Comparator.reverseOrder())))
+                    .toList();
+            System.out.println("Firestore Query Success: chatRooms size=" + rooms.size());
+            return rooms;
+        } catch (Exception e) {
+            throw new RuntimeException("채팅방 전체 목록 조회 실패", e);
+        }
+    }
+
     public List<ChatRoom> findRoomsByMemberId(String memberId) {
         try {
             return firestore.collection(CHAT_ROOMS)

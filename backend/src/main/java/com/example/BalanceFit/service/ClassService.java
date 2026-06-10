@@ -117,8 +117,10 @@ public class ClassService {
     public Class getClassById(String id) {
         Class cls = classRepository.findById(id);
         if (cls == null) {
+            System.out.println("Firestore Class Missing: classId=" + id);
             throw new RuntimeException("클래스 없음: " + id);
         }
+        System.out.println("Firestore Class Loaded: classId=" + cls.getClassId());
         int confirmedCount =
                 reservationRepository
                         .findByClassIdAndStatus(cls.getClassId(), "CONFIRMED")

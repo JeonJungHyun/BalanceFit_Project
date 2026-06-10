@@ -47,6 +47,7 @@ public class ChatController {
         try {
             String userId = getAuthenticatedUserId(session);
             System.out.println("Current User: " + userId);
+            System.out.println("Current User UID Found: " + userId);
             System.out.println("Selected Instructor: " + request.getClassId());
             return ResponseEntity.ok(chatService.getOrCreateInstructorRoom(
                     userId,

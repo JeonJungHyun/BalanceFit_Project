@@ -29,6 +29,7 @@ public class ClassController {
     // 3. 단일 조회
     @GetMapping("/{id}")
     public Class getClassById(@PathVariable String id) {
+        System.out.println("Backend Request Started: classId=" + id);
         return classService.getClassById(id);
     }
 
