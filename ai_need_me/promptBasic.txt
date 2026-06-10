@@ -7,8 +7,6 @@
 - 메모리 기능. 즉 유저가 전에 질문했던 것과 AI가 답했던 내용 전부를 요약해서 리스트에 저장해두고 다음 질문이 들어올 때 사용할 수 있게 하는 것!
 - 현재는 위 기능을 터미널로 진행하여 완벽하게 해내는 것!(백엔드 연결 X, ui X)
 
-이번 목표: 챗봇이 보고 안내해줄 수 있는 문서 만들기.(AI버전)
-
 기술 스택:
 frontend: React tailwindcss WebSocket Axios
 backend: spring boot Maven WebSocket
@@ -20,6 +18,9 @@ chatbot: FastAPI LangChain OpenAI FAISS
 - 교차 검증을 필수로 진행한다.
 - 데이터베이스에 접근을 최소화하기 시작하기 전 백엔드 서버를 종료시킨다. 만약 서버 종료를 할 수 없는 상황이라면 개발자가 직접 종료하도록 진행을 멈추고 "서버를 종료하셨나요?" 메세지를 띄우고 y/n 를 받는다. y일 경우 과정을 진행하고 n일 경우 바로 과정을 종료시킨다.
 
+이번 목표: 챗봇이 보고 안내해줄 수 있는 문서 만들기.(AI버전)
+
+진행해야할 내용:
 이제 documents 폴더 내에 있는 내용을 백터DB로 만드는 과정을 진행할 것입니다.
 import faiss 
 import pickle 
