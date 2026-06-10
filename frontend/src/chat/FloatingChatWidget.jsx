@@ -15,24 +15,7 @@ import "./FloatingChatWidget.css";
 const CHAT_API_BASE_URL = "http://localhost:8080/chats";
 const USER_API_BASE_URL = "http://localhost:8080/users";
 const SUPPORT_USER_ID = "support";
-const MOCK_ROOM_ID = "mock-support-room";
-const mockSupportRoom = {
-  roomId: MOCK_ROOM_ID,
-  memberId: "test-member",
-  supportId: SUPPORT_USER_ID,
-  partnerName: "밸런스핏 상담",
-  partnerRole: "SUPPORT",
-  lastMessage: "백엔드 없이 채팅 흐름을 확인할 수 있어요.",
-  lastMessageAt: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
-};
-const mockInitialMessages = [
-  {
-    messageId: "mock-message-welcome",
-    senderId: SUPPORT_USER_ID,
-    message: "안녕하세요. 이 방은 로그인, DB, 백엔드 없이 동작하는 채팅 테스트 모드입니다.",
-    createdAt: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
-  },
-];
+const CHAT_ROOM_SYNC_INTERVAL = 30000;
 const defaultConversations = [];
 const tabs = [
   { id: "home", label: "홈", icon: FaHome },
@@ -325,53 +308,55 @@ function getStoredNotificationSoundEnabled(userId) {
   return localStorage.getItem(getNotificationSoundStorageKey(userId)) === "true";
 }
 
-function createMockMessage(senderId, message) {
+function getChatUserId() {
+  return localStorage.getItem("userId") || "";
+}
+
+function getChatRequestOptions(options = {}) {
+  const userId = getChatUserId();
+
   return {
-    messageId: `mock-message-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    senderId,
-    message,
-    createdAt: new Date().toISOString(),
+    ...options,
+    credentials: "include",
+    headers: {
+      ...(options.headers || {}),
+      ...(userId ? { "X-User-Id": userId } : {}),
+    },
   };
 }
 
-function createMockReply(userMessage) {
-  if (userMessage.includes("예약")) {
-    return "예약 문의 테스트 응답입니다. 실제 예약 데이터 없이 채팅 흐름만 확인합니다.";
-  }
+function withChatUserParam(url) {
+  const userId = getChatUserId();
+  if (!userId) return url;
 
-  if (userMessage.includes("비용") || userMessage.includes("가격")) {
-    return "비용 문의 테스트 응답입니다. 백엔드 없이 로컬 상태로만 표시됩니다.";
-  }
-
-  return "테스트 상담원이 자동 응답했습니다. 이 메시지는 서버에 저장되지 않습니다.";
+  const separator = url.includes("?") ? "&" : "?";
+  return `${url}${separator}userId=${encodeURIComponent(userId)}`;
 }
 
 const FloatingChatWidget = forwardRef(function FloatingChatWidget({
   conversations = defaultConversations,
   accountType,
-  mockMode = false,
   initialOpen = false,
-  mockUser = { userId: "test-member", name: "테스트 회원" },
 }, ref) {
   const [isChatOpen, setIsChatOpen] = useState(initialOpen);
   const [activeTab, setActiveTab] = useState("home");
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [isNewInquiryOpen, setIsNewInquiryOpen] = useState(false);
   const [inquiryOpenedAt, setInquiryOpenedAt] = useState(null);
-  const [chatRooms, setChatRooms] = useState(() => (mockMode ? [mockSupportRoom] : []));
-  const [roomMessages, setRoomMessages] = useState(() => (mockMode ? { [MOCK_ROOM_ID]: mockInitialMessages } : {}));
+  const [chatRooms, setChatRooms] = useState([]);
+  const [roomMessages, setRoomMessages] = useState({});
   const [roomDrafts, setRoomDrafts] = useState({});
   const [roomScrollPositions, setRoomScrollPositions] = useState({});
   const [chatError, setChatError] = useState("");
-  const [currentUserId, setCurrentUserId] = useState(mockMode ? mockUser.userId : localStorage.getItem("userId") || "");
-  const [currentUserName, setCurrentUserName] = useState(mockMode ? mockUser.name : localStorage.getItem("userName") || "");
+  const [currentUserId, setCurrentUserId] = useState(localStorage.getItem("userId") || "");
+  const [currentUserName, setCurrentUserName] = useState(localStorage.getItem("userName") || "");
   const [userDisplayNames, setUserDisplayNames] = useState({});
   const [selectedLanguage, setSelectedLanguage] = useState("ko");
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
   const [languageSearchTerm, setLanguageSearchTerm] = useState("");
   const [languageScrollbar, setLanguageScrollbar] = useState({ top: 0, height: 96, visible: false });
   const [notificationSoundEnabled, setNotificationSoundEnabled] = useState(() => (
-    getStoredNotificationSoundEnabled(mockMode ? mockUser.userId : localStorage.getItem("userId") || "")
+    getStoredNotificationSoundEnabled(localStorage.getItem("userId") || "")
   ));
   const [unreadCounts, setUnreadCounts] = useState({});
   const [inAppNotification, setInAppNotification] = useState(null);
@@ -501,8 +486,6 @@ const FloatingChatWidget = forwardRef(function FloatingChatWidget({
   }, []);
 
   useEffect(() => {
-    if (mockMode) return undefined;
-
     let isMounted = true;
 
     const syncAuthenticatedUser = () => {
@@ -535,11 +518,9 @@ const FloatingChatWidget = forwardRef(function FloatingChatWidget({
       isMounted = false;
       window.removeEventListener("focus", syncAuthenticatedUser);
     };
-  }, [mockMode]);
+  }, []);
 
   useEffect(() => {
-    if (mockMode) return;
-
     setSelectedConversation(null);
     setIsNewInquiryOpen(false);
     setInquiryOpenedAt(null);
@@ -549,15 +530,14 @@ const FloatingChatWidget = forwardRef(function FloatingChatWidget({
     setRoomScrollPositions({});
     setChatError("");
     setNotificationSoundEnabled(getStoredNotificationSoundEnabled(currentUserId));
-  }, [currentUserId, mockMode]);
+  }, [currentUserId]);
 
   useEffect(() => {
-    if (mockMode) return undefined;
     if (!isChatOpen || !currentUserId) return undefined;
 
     let isMounted = true;
 
-    fetch(`${CHAT_API_BASE_URL}/rooms`, { credentials: "include" })
+    fetch(`${CHAT_API_BASE_URL}/rooms`, getChatRequestOptions())
       .then((response) => {
         if (!response.ok) throw new Error("Failed to load chat rooms");
         return response.json();
@@ -572,7 +552,7 @@ const FloatingChatWidget = forwardRef(function FloatingChatWidget({
     return () => {
       isMounted = false;
     };
-  }, [currentUserId, isChatOpen, mockMode]);
+  }, [currentUserId, isChatOpen]);
 
   useEffect(() => {
     if (!isSupportUser || chatRooms.length === 0) return undefined;
@@ -736,13 +716,9 @@ const FloatingChatWidget = forwardRef(function FloatingChatWidget({
   const loadRoomMessages = async (roomId) => {
     if (!currentUserId && !localStorage.getItem("userId")) throw new Error("Missing userId");
 
-    if (mockMode) {
-      return roomMessages[roomId] || mockInitialMessages;
-    }
-
     const response = await fetch(
       `${CHAT_API_BASE_URL}/rooms/${encodeURIComponent(roomId)}/messages`,
-      { credentials: "include" }
+      getChatRequestOptions()
     );
 
     if (!response.ok) throw new Error("Failed to load messages");
@@ -786,28 +762,10 @@ const FloatingChatWidget = forwardRef(function FloatingChatWidget({
 
     setChatError("");
 
-    if (mockMode) {
-      const room = {
-        ...mockSupportRoom,
-        memberId: currentUserId,
-        lastMessageAt: new Date().toISOString(),
-      };
-      setChatRooms((rooms) => {
-        const nextRooms = rooms.filter((existingRoom) => existingRoom.roomId !== room.roomId);
-        return [room, ...nextRooms];
-      });
-      setRoomMessages((messages) => ({
-        ...messages,
-        [MOCK_ROOM_ID]: messages[MOCK_ROOM_ID] || mockInitialMessages,
-      }));
-      await openConversation(room);
-      return;
-    }
-
     try {
       const response = await fetch(
         `${CHAT_API_BASE_URL}/rooms/support`,
-        { method: "POST", credentials: "include" }
+        getChatRequestOptions({ method: "POST" })
       );
 
       if (!response.ok) throw new Error("Failed to create support room");
@@ -846,33 +804,14 @@ const FloatingChatWidget = forwardRef(function FloatingChatWidget({
     setChatError("");
     setCurrentUserId(storedUserId);
 
-    if (mockMode) {
-      const room = {
-        roomId: `mock-instructor-${classId}`,
-        memberId: storedUserId,
-        teacherId: classId,
-        partnerName: instructorName || classId,
-        partnerRole: "INSTRUCTOR",
-        lastMessage: "",
-        lastMessageAt: new Date().toISOString(),
-      };
-      setChatRooms((rooms) => {
-        const nextRooms = rooms.filter((existingRoom) => existingRoom.roomId !== room.roomId);
-        return [room, ...nextRooms];
-      });
-      await openConversation(room);
-      return true;
-    }
-
     try {
       const response = await fetch(
         `${CHAT_API_BASE_URL}/rooms/instructor`,
-        {
+        getChatRequestOptions({
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          credentials: "include",
           body: JSON.stringify({ classId, instructorName }),
-        }
+        })
       );
 
       if (!response.ok) throw new Error("Failed to open instructor room");
@@ -947,12 +886,13 @@ const FloatingChatWidget = forwardRef(function FloatingChatWidget({
   };
 
   useEffect(() => {
-    if (mockMode || !currentUserId) return undefined;
+    if (!currentUserId) return undefined;
+    if (isChatOpen) return undefined;
 
     let isMounted = true;
 
     const syncRoomsForInAppNotification = () => {
-      fetch(`${CHAT_API_BASE_URL}/rooms`, { credentials: "include" })
+      fetch(`${CHAT_API_BASE_URL}/rooms`, getChatRequestOptions())
         .then((response) => {
           if (!response.ok) throw new Error("Failed to load chat rooms");
           return response.json();
@@ -1001,7 +941,7 @@ const FloatingChatWidget = forwardRef(function FloatingChatWidget({
 
     syncRoomsForInAppNotification();
     window.addEventListener("focus", syncRoomsForInAppNotification);
-    const intervalId = window.setInterval(syncRoomsForInAppNotification, 1000);
+    const intervalId = window.setInterval(syncRoomsForInAppNotification, CHAT_ROOM_SYNC_INTERVAL);
 
     return () => {
       isMounted = false;
@@ -1011,8 +951,8 @@ const FloatingChatWidget = forwardRef(function FloatingChatWidget({
   }, [
     currentUserId,
     handleIncomingMessage,
+    isChatOpen,
     isSupportUser,
-    mockMode,
     selectedRoomId,
     text.chatTitle,
   ]);
@@ -1087,34 +1027,13 @@ const FloatingChatWidget = forwardRef(function FloatingChatWidget({
 
     chatRoomSendingRef.current[selectedRoomId] = true;
 
-    if (mockMode) {
-      const savedMessage = createMockMessage(currentUserId, trimmedMessage);
-      appendRoomMessage(selectedRoomId, savedMessage);
-      setRoomDrafts((drafts) => ({ ...drafts, [selectedRoomId]: "" }));
-
-      window.requestAnimationFrame(() => {
-        if (!chatRoomContentRef.current) return;
-        chatRoomContentRef.current.scrollTop = chatRoomContentRef.current.scrollHeight;
-        resizeChatRoomTextarea();
-      });
-
-      window.setTimeout(() => {
-        const replyMessage = createMockMessage(SUPPORT_USER_ID, createMockReply(trimmedMessage));
-        appendRoomMessage(selectedRoomId, replyMessage);
-        handleIncomingMessage(selectedRoomId, replyMessage);
-        chatRoomSendingRef.current[selectedRoomId] = false;
-      }, 450);
-      return;
-    }
-
     fetch(
       `${CHAT_API_BASE_URL}/rooms/${encodeURIComponent(selectedRoomId)}/messages`,
-      {
+      getChatRequestOptions({
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({ message: trimmedMessage }),
-      }
+      })
     )
       .then((response) => {
         if (!response.ok) throw new Error("Failed to send message");
@@ -1139,11 +1058,10 @@ const FloatingChatWidget = forwardRef(function FloatingChatWidget({
   };
 
   useEffect(() => {
-    if (mockMode) return undefined;
     if (!selectedRoomId || !currentUserId || !selectedConversation) return undefined;
 
     const stream = new EventSource(
-      `${CHAT_API_BASE_URL}/rooms/${encodeURIComponent(selectedRoomId)}/stream`,
+      withChatUserParam(`${CHAT_API_BASE_URL}/rooms/${encodeURIComponent(selectedRoomId)}/stream`),
       { withCredentials: true }
     );
 
@@ -1169,7 +1087,7 @@ const FloatingChatWidget = forwardRef(function FloatingChatWidget({
     return () => {
       stream.close();
     };
-  }, [currentUserId, selectedConversation, selectedRoomId, mockMode, notifyIncomingMessage]);
+  }, [currentUserId, selectedConversation, selectedRoomId, notifyIncomingMessage]);
 
   useEffect(() => {
     resizeChatRoomTextarea();

@@ -9,13 +9,19 @@ export default function Login() {
   const navigate = useNavigate();
 
   const login = () => {
-    if (!userId) { alert("아이디를 입력해주세요."); return; }
+    const trimmedUserId = userId.trim();
+
+    if (!trimmedUserId) { alert("아이디를 입력해주세요."); return; }
     if (!password) { alert("비밀번호를 입력해주세요."); return; }
 
-    axios.post("http://localhost:8080/users/login", { userId, password }, { withCredentials: true })
+    axios.post("http://localhost:8080/users/login", { userId: trimmedUserId, password }, { withCredentials: true })
       .then((res) => {
-        localStorage.setItem("userId", res.data.userId);
-        navigate("/classes");
+        const loggedInUserId = res.data?.userId;
+        if (!loggedInUserId) throw new Error("Missing userId");
+
+        localStorage.setItem("userId", loggedInUserId);
+        localStorage.setItem("userName", res.data?.name || loggedInUserId);
+        navigate("/classes", { replace: true });
       })
       .catch((err) => {
         if (err.response?.status === 401) {

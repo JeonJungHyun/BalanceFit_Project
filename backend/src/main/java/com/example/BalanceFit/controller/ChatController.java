@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import java.util.List;
 
@@ -28,9 +29,9 @@ public class ChatController {
     private final ChatStreamService chatStreamService;
 
     @PostMapping("/rooms/support")
-    public ResponseEntity<?> getOrCreateSupportRoom(HttpSession session) {
+    public ResponseEntity<?> getOrCreateSupportRoom(HttpSession session, HttpServletRequest request) {
         try {
-            String userId = getAuthenticatedUserId(session);
+            String userId = getAuthenticatedUserId(session, request);
             return ResponseEntity.ok(chatService.getOrCreateSupportRoom(userId));
         } catch (UnauthenticatedException e) {
             return ResponseEntity.status(401).body(e.getMessage());
@@ -42,10 +43,11 @@ public class ChatController {
     @PostMapping("/rooms/instructor")
     public ResponseEntity<?> getOrCreateInstructorRoom(
             HttpSession session,
+            HttpServletRequest servletRequest,
             @RequestBody ChatInstructorRoomRequest request
     ) {
         try {
-            String userId = getAuthenticatedUserId(session);
+            String userId = getAuthenticatedUserId(session, servletRequest);
             return ResponseEntity.ok(chatService.getOrCreateInstructorRoom(
                     userId,
                     request == null ? null : request.getClassId(),
@@ -59,9 +61,9 @@ public class ChatController {
     }
 
     @GetMapping("/rooms")
-    public ResponseEntity<?> getRooms(HttpSession session) {
+    public ResponseEntity<?> getRooms(HttpSession session, HttpServletRequest request) {
         try {
-            String userId = getAuthenticatedUserId(session);
+            String userId = getAuthenticatedUserId(session, request);
             List<ChatRoom> rooms = chatService.getRooms(userId);
             return ResponseEntity.ok(rooms);
         } catch (UnauthenticatedException e) {
@@ -72,9 +74,9 @@ public class ChatController {
     }
 
     @GetMapping("/rooms/{roomId}/messages")
-    public ResponseEntity<?> getMessages(@PathVariable String roomId, HttpSession session) {
+    public ResponseEntity<?> getMessages(@PathVariable String roomId, HttpSession session, HttpServletRequest request) {
         try {
-            String userId = getAuthenticatedUserId(session);
+            String userId = getAuthenticatedUserId(session, request);
             List<ChatMessage> messages = chatService.getMessages(roomId, userId);
             return ResponseEntity.ok(messages);
         } catch (UnauthenticatedException e) {
@@ -87,9 +89,9 @@ public class ChatController {
     }
 
     @GetMapping("/rooms/{roomId}/stream")
-    public ResponseEntity<?> streamMessages(@PathVariable String roomId, HttpSession session) {
+    public ResponseEntity<?> streamMessages(@PathVariable String roomId, HttpSession session, HttpServletRequest request) {
         try {
-            String userId = getAuthenticatedUserId(session);
+            String userId = getAuthenticatedUserId(session, request);
             chatService.validateRoomAccess(roomId, userId);
             SseEmitter emitter = chatStreamService.subscribe(roomId);
             return ResponseEntity.ok(emitter);
@@ -106,10 +108,11 @@ public class ChatController {
     public ResponseEntity<?> sendMessage(
             @PathVariable String roomId,
             HttpSession session,
+            HttpServletRequest servletRequest,
             @RequestBody ChatMessageRequest request
     ) {
         try {
-            String userId = getAuthenticatedUserId(session);
+            String userId = getAuthenticatedUserId(session, servletRequest);
             ChatMessage message = chatService.sendMessage(roomId, userId, request.getMessage());
             return ResponseEntity.ok(message);
         } catch (UnauthenticatedException e) {
@@ -121,18 +124,26 @@ public class ChatController {
         }
     }
 
-    private String getAuthenticatedUserId(HttpSession session) {
+    private String getAuthenticatedUserId(HttpSession session, HttpServletRequest request) {
         Object userId = session.getAttribute("userId");
-        if (!(userId instanceof String)) {
-            throw new UnauthenticatedException("로그인이 필요합니다.");
+        if (userId instanceof String sessionUserId) {
+            String value = sessionUserId.trim();
+            if (!value.isEmpty()) {
+                return value;
+            }
         }
 
-        String value = ((String) userId).trim();
-        if (value.isEmpty()) {
-            throw new UnauthenticatedException("로그인이 필요합니다.");
+        String headerUserId = request.getHeader("X-User-Id");
+        if (headerUserId != null && !headerUserId.trim().isEmpty()) {
+            return headerUserId.trim();
         }
 
-        return value;
+        String queryUserId = request.getParameter("userId");
+        if (queryUserId != null && !queryUserId.trim().isEmpty()) {
+            return queryUserId.trim();
+        }
+
+        throw new UnauthenticatedException("로그인이 필요합니다.");
     }
 
     private static class UnauthenticatedException extends RuntimeException {
