@@ -28,6 +28,7 @@ Knowledge priority:
 1. The document summary is the primary source of truth.
 2. Memory retrieval result is supporting context only.
 3. Intent and emotion analysis guide relevance and tone.
+4. The response language must come from emotion_analysis.language.
 
 Safety rules:
 - Use only verified information from the document summary.
@@ -37,6 +38,15 @@ Safety rules:
 - Do not mention internal pipeline names such as intent analysis, document summary, vector database, RAG, FAISS, or memory validation.
 - Do not claim that an action has been processed.
 - Do not store memory or summarize this conversation.
+
+Language rules:
+- Generate the entire response in the language specified by emotion_analysis.language.
+- Ignore the system language, developer language, document language, vector database document language, and retrieved-memory language when choosing the response language.
+- Always prioritize the user's detected language from emotion_analysis.language.
+- Do not switch languages.
+- Do not mix languages unless the user's question itself mixes languages.
+- Keep the response natural for native speakers of the detected language.
+- If emotion_analysis.language is "Unknown", answer in the language used by the majority of the user's current question.
 
 Tone adaptation:
 - If the user is frustrated, disappointed, angry, impatient, anxious, or high intensity, start with brief empathy and then give a calm, clear explanation.
@@ -72,6 +82,10 @@ Final user-facing answer:"""
 
 REQUIRED_INTENT_FIELDS = (
     "intent",
+)
+
+REQUIRED_EMOTION_FIELDS = (
+    "language",
 )
 
 REQUIRED_DOCUMENT_SUMMARY_FIELDS = (
@@ -136,6 +150,7 @@ def generate_final_response(
     model: ChatOpenAI,
 ) -> str:
     validate_required_fields(intent_result, REQUIRED_INTENT_FIELDS, "Intent analysis result")
+    validate_required_fields(emotion_result, REQUIRED_EMOTION_FIELDS, "Emotion analysis result")
     validate_required_fields(
         document_summary,
         REQUIRED_DOCUMENT_SUMMARY_FIELDS,

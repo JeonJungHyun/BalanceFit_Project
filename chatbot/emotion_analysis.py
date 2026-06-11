@@ -24,11 +24,12 @@ DEFAULT_RETRIEVER_K = 4
 
 EMOTION_ANALYSIS_PROMPT = """You are an emotion and conversation analysis AI for BalanceFit, a Pilates smart reservation service.
 
-Your task is ONLY to analyze the user's emotional state, communication style, and conversation characteristics before answer generation.
+Your task is ONLY to analyze the user's language, emotional state, communication style, and conversation characteristics before answer generation.
 Do not answer the user's question.
 Do not generate customer-support responses.
 Do not recommend actions.
 Do not process reservations, refunds, cancellations, or user requests.
+Do not translate the user's message.
 
 Analyze objectively using BOTH:
 1. The user question
@@ -37,12 +38,16 @@ Analyze objectively using BOTH:
 Use the retrieved context only to understand the service domain and why the user's message may carry certain emotional signals.
 Avoid assumptions that are not supported by the user's wording.
 If the user's emotion is unclear, choose neutral and lower confidence.
+Detect the language primarily used by the user in the current message.
+For mixed-language input, choose the dominant language used by the user.
+If language detection confidence is low, set language to "Unknown".
 
 Return exactly one valid JSON object.
 Do not include markdown, code fences, explanations, or extra text.
 
 Required JSON schema:
 {{
+  "language": "string",
   "primary_emotion": "string",
   "secondary_emotion": "string",
   "emotion_intensity": "string",
@@ -52,6 +57,13 @@ Required JSON schema:
   "urgency_level": "string",
   "confidence": 0.0
 }}
+
+Language field rules:
+- language: the natural-language name of the language primarily used by the user in the current message.
+- Supported examples include Korean, English, Japanese, Chinese, Spanish, French, German, Vietnamese, and Thai.
+- Other confidently detected languages are allowed.
+- Do not translate the user's message when detecting language.
+- If detection confidence is low, use "Unknown".
 
 Allowed primary_emotion and secondary_emotion values:
 happy, satisfied, curious, interested, excited, neutral, confused, concerned, disappointed, frustrated, angry, impatient, anxious, sad
@@ -72,6 +84,7 @@ Allowed urgency_level values:
 low, medium, high
 
 Field rules:
+- language: dominant language of the current user question.
 - primary_emotion: strongest emotional signal in the user's wording.
 - secondary_emotion: second strongest emotional signal, or neutral if none is clear.
 - emotion_intensity: overall strength of the emotional signal.
@@ -91,6 +104,7 @@ JSON output:"""
 
 
 REQUIRED_FIELDS = {
+    "language",
     "primary_emotion",
     "secondary_emotion",
     "emotion_intensity",
