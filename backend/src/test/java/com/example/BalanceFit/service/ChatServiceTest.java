@@ -1,6 +1,7 @@
 package com.example.BalanceFit.service;
 
 import com.example.BalanceFit.entity.ChatRoom;
+import com.example.BalanceFit.entity.ChatMessage;
 import com.example.BalanceFit.repository.ChatRepository;
 import org.junit.jupiter.api.Test;
 
@@ -44,6 +45,52 @@ class ChatServiceTest {
     }
 
     @Test
+    void getOrCreateChatbotRoomReturnsExistingRoomWithoutCreatingDuplicateOrGreeting() {
+        FakeChatRepository chatRepository = new FakeChatRepository();
+        ChatService chatService = new ChatService(chatRepository, new ChatStreamService());
+
+        ChatRoom existingRoom = new ChatRoom();
+        existingRoom.setRoomId("chatbot-existing");
+        existingRoom.setRoomTitle("챗봇");
+        existingRoom.setMemberId("member-1");
+        existingRoom.setInstructorId("CHATBOT");
+        chatRepository.chatbotRoom = existingRoom;
+
+        ChatRoom result = chatService.getOrCreateChatbotRoom("member-1");
+
+        assertEquals("chatbot-existing", result.getRoomId());
+        assertEquals(0, chatRepository.chatbotSaveCount);
+        assertEquals(0, chatRepository.savedMessages.size());
+    }
+
+    @Test
+    void getOrCreateChatbotRoomCreatesRoomAndInitialGreetingOnce() {
+        FakeChatRepository chatRepository = new FakeChatRepository();
+        ChatService chatService = new ChatService(chatRepository, new ChatStreamService());
+
+        ChatRoom result = chatService.getOrCreateChatbotRoom("member-1");
+
+        assertNotNull(result.getRoomId());
+        assertEquals("챗봇", result.getRoomTitle());
+        assertEquals("member-1", result.getMemberId());
+        assertEquals("CHATBOT", result.getInstructorId());
+        assertEquals(false, result.getUnreadMember());
+        assertEquals(false, result.getUnreadInstructor());
+        assertEquals(1, chatRepository.chatbotSaveCount);
+        assertEquals(1, chatRepository.savedMessages.size());
+        assertEquals("CHATBOT", chatRepository.savedMessages.get(0).getSenderId());
+        assertEquals("CHATBOT", chatRepository.savedMessages.get(0).getSenderType());
+        assertEquals("무엇을 도와드릴까요?", chatRepository.savedMessages.get(0).getMessage());
+
+        chatRepository.chatbotRoom = result;
+        ChatRoom reusedRoom = chatService.getOrCreateChatbotRoom("member-1");
+
+        assertEquals(result.getRoomId(), reusedRoom.getRoomId());
+        assertEquals(1, chatRepository.chatbotSaveCount);
+        assertEquals(1, chatRepository.savedMessages.size());
+    }
+
+    @Test
     void getRoomsReturnsFirestoreRoomsNewestFirst() {
         FakeChatRepository chatRepository = new FakeChatRepository();
         ChatService chatService = new ChatService(chatRepository, new ChatStreamService());
@@ -69,9 +116,12 @@ class ChatServiceTest {
 
     private static class FakeChatRepository extends ChatRepository {
         private ChatRoom instructorRoom;
+        private ChatRoom chatbotRoom;
         private ChatRoom savedRoom;
         private List<ChatRoom> allRooms = List.of();
+        private List<ChatMessage> savedMessages = new ArrayList<>();
         private int saveCount;
+        private int chatbotSaveCount;
 
         FakeChatRepository() {
             super(null);
@@ -91,9 +141,34 @@ class ChatServiceTest {
         }
 
         @Override
+        public ChatRoom findChatbotRoom(String memberId, String instructorId) {
+            if (chatbotRoom == null) {
+                return null;
+            }
+
+            if (memberId.equals(chatbotRoom.getMemberId()) && instructorId.equals(chatbotRoom.getInstructorId())) {
+                return chatbotRoom;
+            }
+
+            return null;
+        }
+
+        @Override
         public void saveRoom(ChatRoom room) {
             saveCount++;
             savedRoom = room;
+        }
+
+        @Override
+        public void saveChatbotRoom(ChatRoom room) {
+            chatbotSaveCount++;
+            savedRoom = room;
+        }
+
+        @Override
+        public ChatMessage saveMessage(ChatMessage message) {
+            savedMessages.add(message);
+            return message;
         }
 
         @Override

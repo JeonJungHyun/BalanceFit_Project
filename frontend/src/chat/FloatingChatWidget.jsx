@@ -16,7 +16,9 @@ import "./FloatingChatWidget.css";
 const CHAT_API_BASE_URL = "http://localhost:8080/chats";
 const USER_API_BASE_URL = "http://localhost:8080/users";
 const SUPPORT_USER_ID = "support";
+const CHATBOT_USER_ID = "CHATBOT";
 const MOCK_ROOM_ID = "mock-support-room";
+const MOCK_CHATBOT_ROOM_ID = "mock-chatbot-room";
 const mockSupportRoom = {
   roomId: MOCK_ROOM_ID,
   memberId: "test-member",
@@ -31,6 +33,15 @@ const mockInitialMessages = [
     messageId: "mock-message-welcome",
     senderId: SUPPORT_USER_ID,
     message: "안녕하세요. 이 방은 로그인, DB, 백엔드 없이 동작하는 채팅 테스트 모드입니다.",
+    createdAt: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
+  },
+];
+const mockChatbotInitialMessages = [
+  {
+    messageId: "mock-chatbot-message-welcome",
+    senderId: CHATBOT_USER_ID,
+    senderType: "CHATBOT",
+    message: "무엇을 도와드릴까요?",
     createdAt: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
   },
 ];
@@ -400,6 +411,12 @@ const FloatingChatWidget = forwardRef(function FloatingChatWidget({
       return displayName;
     }
 
+    if (conversation.instructorId === CHATBOT_USER_ID) {
+      displayName = conversation.roomTitle || "챗봇";
+      console.log("Participant Name Resolved:", conversation.roomId, displayName);
+      return displayName;
+    }
+
     if (conversation.teacherId && conversation.teacherId === currentUserId) {
       displayName = `${userDisplayNames[conversation.memberId] || conversation.memberId}님`;
       console.log("Participant Name Resolved:", conversation.roomId, displayName);
@@ -434,10 +451,15 @@ const FloatingChatWidget = forwardRef(function FloatingChatWidget({
     let hasUnread = false;
     if (conversation.memberId === currentUserId) {
       hasUnread = Boolean(conversation.unreadMessageMember);
+      if (conversation.instructorId === CHATBOT_USER_ID) {
+        hasUnread = Boolean(conversation.unreadMember);
+      }
     } else if (conversation.teacherId === currentUserId) {
       hasUnread = Boolean(conversation.unreadMessageTeacher);
     } else if (conversation.supportId === currentUserId) {
       hasUnread = Boolean(conversation.unreadMessageSupport);
+    } else if (conversation.instructorId === currentUserId) {
+      hasUnread = Boolean(conversation.unreadInstructor);
     }
 
     console.log("Unread Status Resolved:", conversation.roomId, hasUnread);
@@ -455,6 +477,10 @@ const FloatingChatWidget = forwardRef(function FloatingChatWidget({
 
     if (message.senderId === conversation.supportId) {
       return conversation.partnerName || "밸런스핏 상담";
+    }
+
+    if (message.senderId === conversation.instructorId) {
+      return conversation.roomTitle || "챗봇";
     }
 
     if (message.senderId === conversation.memberId) {
@@ -822,6 +848,63 @@ const FloatingChatWidget = forwardRef(function FloatingChatWidget({
     }
   };
 
+  const openChatbotRoom = async () => {
+    if (!currentUserId) {
+      setChatError("로그인이 필요합니다.");
+      setIsChatOpen(true);
+      setActiveTab("chat");
+      return;
+    }
+
+    setIsChatOpen(true);
+    setActiveTab("chat");
+    setSelectedConversation(null);
+    setIsNewInquiryOpen(false);
+    setInquiryOpenedAt(null);
+    setChatError("");
+
+    if (mockMode) {
+      const room = {
+        roomId: MOCK_CHATBOT_ROOM_ID,
+        roomTitle: "챗봇",
+        memberId: currentUserId,
+        instructorId: CHATBOT_USER_ID,
+        unreadMember: false,
+        unreadInstructor: false,
+        lastMessage: "무엇을 도와드릴까요?",
+        lastMessageAt: new Date().toISOString(),
+      };
+      setChatRooms((rooms) => {
+        const nextRooms = rooms.filter((existingRoom) => existingRoom.roomId !== room.roomId);
+        return [room, ...nextRooms];
+      });
+      setRoomMessages((messages) => ({
+        ...messages,
+        [MOCK_CHATBOT_ROOM_ID]: messages[MOCK_CHATBOT_ROOM_ID] || mockChatbotInitialMessages,
+      }));
+      await openConversation(room);
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${CHAT_API_BASE_URL}/rooms/chatbot`,
+        { method: "POST", credentials: "include" }
+      );
+
+      if (!response.ok) throw new Error("Failed to create chatbot room");
+
+      const room = await response.json();
+      setChatRooms((rooms) => {
+        const nextRooms = rooms.filter((existingRoom) => existingRoom.roomId !== room.roomId);
+        return [room, ...nextRooms];
+      });
+      await openConversation(room);
+    } catch {
+      setChatError("챗봇 상담방을 열지 못했어요.");
+    }
+  };
+
   const openInstructorRoom = async ({ classId, instructorName, userId }) => {
     if (!classId) {
       setChatError("강사 정보를 찾을 수 없습니다.");
@@ -1098,7 +1181,7 @@ const FloatingChatWidget = forwardRef(function FloatingChatWidget({
         <button
           type="button"
           className="floating-chat-primary-action"
-          onClick={isSupportUser ? () => setActiveTab("chat") : openNewInquiry}
+          onClick={isSupportUser ? () => setActiveTab("chat") : openChatbotRoom}
         >
           {text.inquiryButton} <FaPaperPlane aria-hidden="true" />
         </button>

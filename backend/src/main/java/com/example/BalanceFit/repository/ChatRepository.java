@@ -10,6 +10,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Repository
@@ -44,6 +45,38 @@ public class ChatRepository {
         }
     }
 
+    public void saveChatbotRoom(ChatRoom room) {
+        try {
+            firestore.collection(CHAT_ROOMS)
+                    .document(room.getRoomId())
+                    .set(Map.of(
+                            "roomId", room.getRoomId(),
+                            "roomTitle", room.getRoomTitle(),
+                            "memberId", room.getMemberId(),
+                            "instructorId", room.getInstructorId(),
+                            "unreadMember", room.getUnreadMember(),
+                            "unreadInstructor", room.getUnreadInstructor()
+                    ))
+                    .get();
+        } catch (Exception e) {
+            throw new RuntimeException("챗봇 상담방 저장 실패: " + room.getRoomId(), e);
+        }
+    }
+
+    public void updateChatbotRoomUnread(ChatRoom room) {
+        try {
+            firestore.collection(CHAT_ROOMS)
+                    .document(room.getRoomId())
+                    .update(
+                            "unreadMember", room.getUnreadMember(),
+                            "unreadInstructor", room.getUnreadInstructor()
+                    )
+                    .get();
+        } catch (Exception e) {
+            throw new RuntimeException("챗봇 상담방 읽음 상태 저장 실패: " + room.getRoomId(), e);
+        }
+    }
+
     public ChatRoom findInstructorRoom(String memberId, String teacherId) {
         try {
             List<QueryDocumentSnapshot> documents = firestore.collection(CHAT_ROOMS)
@@ -61,6 +94,26 @@ public class ChatRepository {
             return documents.get(0).toObject(ChatRoom.class);
         } catch (Exception e) {
             throw new RuntimeException("강사 상담방 조회 실패: " + memberId + ", " + teacherId, e);
+        }
+    }
+
+    public ChatRoom findChatbotRoom(String memberId, String instructorId) {
+        try {
+            List<QueryDocumentSnapshot> documents = firestore.collection(CHAT_ROOMS)
+                    .whereEqualTo("memberId", memberId)
+                    .whereEqualTo("instructorId", instructorId)
+                    .limit(1)
+                    .get()
+                    .get()
+                    .getDocuments();
+
+            if (documents.isEmpty()) {
+                return null;
+            }
+
+            return documents.get(0).toObject(ChatRoom.class);
+        } catch (Exception e) {
+            throw new RuntimeException("챗봇 상담방 조회 실패: " + memberId + ", " + instructorId, e);
         }
     }
 
@@ -146,7 +199,7 @@ public class ChatRepository {
             if (room.getMemberId().equals(userId)) {
                 firestore.collection(CHAT_ROOMS)
                         .document(room.getRoomId())
-                        .update("unreadMessageMember", false)
+                        .update(room.getInstructorId() != null ? "unreadMember" : "unreadMessageMember", false)
                         .get();
                 return;
             }
@@ -163,6 +216,14 @@ public class ChatRepository {
                 firestore.collection(CHAT_ROOMS)
                         .document(room.getRoomId())
                         .update("unreadMessageTeacher", false)
+                        .get();
+                return;
+            }
+
+            if (userId.equals(room.getInstructorId())) {
+                firestore.collection(CHAT_ROOMS)
+                        .document(room.getRoomId())
+                        .update("unreadInstructor", false)
                         .get();
             }
         } catch (Exception e) {

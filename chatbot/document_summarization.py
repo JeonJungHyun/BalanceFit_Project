@@ -241,9 +241,9 @@ def main() -> None:
     api_key, model_name = load_settings()
     model = ChatOpenAI(api_key=api_key, model=model_name, temperature=0)
 
-    print("BalanceFit Intent-Focused Document Summarizer")
-    print("Type 'exit' or 'quit' as the user question to stop.")
-    print("Paste intent analysis and retrieval results as one-line JSON.")
+    # print("BalanceFit Intent-Focused Document Summarizer")
+    # print("Type 'exit' or 'quit' as the user question to stop.")
+    # print("Paste intent analysis and retrieval results as one-line JSON.")
 
     while True:
         user_question = input("\nUser question: ").strip()

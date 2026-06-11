@@ -152,9 +152,9 @@ def main() -> None:
     vectorstore = load_vectorstore()
     retriever = vectorstore.as_retriever(search_kwargs={"k": DEFAULT_RETRIEVER_K})
 
-    print("BalanceFit Intent-Based FAISS Retrieval")
-    print("Type 'exit' or 'quit' as the user question to stop.")
-    print("Paste the intent analysis result as one-line JSON.")
+    # print("BalanceFit Intent-Based FAISS Retrieval")
+    # print("Type 'exit' or 'quit' as the user question to stop.")
+    # print("Paste the intent analysis result as one-line JSON.")
 
     while True:
         user_question = input("\nUser question: ").strip()

@@ -39,6 +39,20 @@ public class ChatController {
         }
     }
 
+    @PostMapping("/rooms/chatbot")
+    public ResponseEntity<?> getOrCreateChatbotRoom(HttpSession session) {
+        try {
+            String userId = getAuthenticatedUserId(session);
+            return ResponseEntity.ok(chatService.getOrCreateChatbotRoom(userId));
+        } catch (UnauthenticatedException e) {
+            return ResponseEntity.status(401).body(e.getMessage());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (RuntimeException e) {
+            return ResponseEntity.internalServerError().body(e.getMessage());
+        }
+    }
+
     @PostMapping("/rooms/instructor")
     public ResponseEntity<?> getOrCreateInstructorRoom(
             HttpSession session,

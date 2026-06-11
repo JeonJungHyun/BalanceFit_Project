@@ -177,11 +177,11 @@ def generate_final_response(
 
 def main() -> None:
     api_key, model_name = load_settings()
-    model = ChatOpenAI(api_key=api_key, model=model_name, temperature=0)
+    model = ChatOpenAI(api_key=api_key, model=model_name, temperature=0, max_completion_tokens=1024)
 
-    print("BalanceFit Final Response Generator")
-    print("Type 'exit' or 'quit' as the user question to stop.")
-    print("Paste all structured inputs as one-line JSON.")
+    # print("BalanceFit Final Response Generator")
+    # print("Type 'exit' or 'quit' as the user question to stop.")
+    # print("Paste all structured inputs as one-line JSON.")
 
     while True:
         user_question = input("\nCurrent user question: ").strip()

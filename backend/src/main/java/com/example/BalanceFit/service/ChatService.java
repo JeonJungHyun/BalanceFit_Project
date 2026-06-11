@@ -16,6 +16,9 @@ public class ChatService {
 
     private static final String SUPPORT_ID = "support";
     private static final String SUPPORT_NAME = "밸런스핏 상담";
+    private static final String CHATBOT_ID = "CHATBOT";
+    private static final String CHATBOT_ROOM_TITLE = "챗봇";
+    private static final String CHATBOT_GREETING = "무엇을 도와드릴까요?";
 
     private final ChatRepository chatRepository;
     private final ChatStreamService chatStreamService;
@@ -46,6 +49,45 @@ public class ChatService {
         room.setUnreadMessageMember(false);
 
         chatRepository.saveRoom(room);
+        return room;
+    }
+
+    public ChatRoom getOrCreateChatbotRoom(String userId) {
+        validateUserId(userId);
+        if (CHATBOT_ID.equals(userId)) {
+            throw new IllegalArgumentException("챗봇 계정은 새 문의를 만들 수 없습니다.");
+        }
+
+        ChatRoom existingRoom = chatRepository.findChatbotRoom(userId, CHATBOT_ID);
+        if (existingRoom != null) {
+            return existingRoom;
+        }
+
+        long now = System.currentTimeMillis();
+        String roomId = chatbotRoomId(userId);
+
+        ChatRoom room = new ChatRoom();
+        room.setRoomId(roomId);
+        room.setRoomTitle(CHATBOT_ROOM_TITLE);
+        room.setMemberId(userId);
+        room.setInstructorId(CHATBOT_ID);
+        room.setUnreadMember(false);
+        room.setUnreadInstructor(false);
+        room.setLastMessage(CHATBOT_GREETING);
+        room.setCreatedAt(now);
+        room.setLastMessageAt(now);
+
+        chatRepository.saveChatbotRoom(room);
+
+        ChatMessage greeting = new ChatMessage();
+        greeting.setRoomId(roomId);
+        greeting.setSenderId(CHATBOT_ID);
+        greeting.setSenderType("CHATBOT");
+        greeting.setMessage(CHATBOT_GREETING);
+        greeting.setCreatedAt(now);
+        greeting.setIsRead(false);
+        chatRepository.saveMessage(greeting);
+
         return room;
     }
 
@@ -117,6 +159,7 @@ public class ChatService {
         long now = System.currentTimeMillis();
         boolean isSupportSender = SUPPORT_ID.equals(userId);
         boolean isInstructorRoom = room.getTeacherId() != null && !room.getTeacherId().isBlank();
+        boolean isChatbotRoom = CHATBOT_ID.equals(room.getInstructorId());
         boolean isTeacherSender = userId.equals(room.getTeacherId());
 
         ChatMessage message = new ChatMessage();
@@ -131,14 +174,21 @@ public class ChatService {
 
         room.setLastMessage(messageText);
         room.setLastMessageAt(now);
-        if (isInstructorRoom) {
+        if (isChatbotRoom) {
+            room.setUnreadInstructor(!CHATBOT_ID.equals(userId));
+            room.setUnreadMember(CHATBOT_ID.equals(userId));
+        } else if (isInstructorRoom) {
             room.setUnreadMessageTeacher(!isTeacherSender);
             room.setUnreadMessageMember(isTeacherSender);
         } else {
             room.setUnreadMessageSupport(!isSupportSender);
             room.setUnreadMessageMember(isSupportSender);
         }
-        chatRepository.saveRoom(room);
+        if (isChatbotRoom) {
+            chatRepository.updateChatbotRoomUnread(room);
+        } else {
+            chatRepository.saveRoom(room);
+        }
         chatStreamService.emitMessage(savedMessage);
 
         return savedMessage;
@@ -162,7 +212,8 @@ public class ChatService {
 
         if (!userId.equals(room.getMemberId())
                 && !userId.equals(room.getSupportId())
-                && !userId.equals(room.getTeacherId())) {
+                && !userId.equals(room.getTeacherId())
+                && !userId.equals(room.getInstructorId())) {
             throw new SecurityException("접근할 수 없는 채팅방입니다.");
         }
 
@@ -171,6 +222,11 @@ public class ChatService {
 
     private String supportRoomId(String userId) {
         return "support_" + userId;
+    }
+
+    private String chatbotRoomId(String userId) {
+        String key = userId + ":" + CHATBOT_ID;
+        return "chatbot_" + UUID.nameUUIDFromBytes(key.getBytes(StandardCharsets.UTF_8));
     }
 
     private String instructorRoomId(String userId, String classId) {

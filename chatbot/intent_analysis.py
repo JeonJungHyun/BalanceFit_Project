@@ -208,8 +208,8 @@ def main() -> None:
     retriever = vectorstore.as_retriever(search_kwargs={"k": DEFAULT_RETRIEVER_K})
     model = ChatOpenAI(api_key=api_key, model=model_name, temperature=0)
 
-    print("BalanceFit Intent Analysis AI")
-    print("Type 'exit' or 'quit' to stop.")
+    # print("BalanceFit Intent Analysis AI")
+    # print("Type 'exit' or 'quit' to stop.")
 
     while True:
         user_question = input("\nUser question: ").strip()
